@@ -1,0 +1,36 @@
+-- Migration from version 1.0.2 to 1.0.3
+-- Add product types support (partage_benefices / revente_lea)
+
+-- Create product_type enum
+DO $$ BEGIN
+    CREATE TYPE product_type AS ENUM (
+        'partage_benefices',  -- Classic: shared profit model  
+        'revente_lea'         -- Resale: fixed amount to David
+    );
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+-- Add product_type column to products table (default to existing behavior)
+ALTER TABLE products 
+ADD COLUMN IF NOT EXISTS product_type product_type DEFAULT 'partage_benefices' NOT NULL;
+
+-- Add prix_vente_lea column (used for REVENTE_LEA type)
+ALTER TABLE products 
+ADD COLUMN IF NOT EXISTS prix_vente_lea FLOAT DEFAULT NULL;
+
+-- Add comments for documentation
+COMMENT ON COLUMN products.product_type IS 'Type de produit: partage_benefices (partage 50/50 du bénéfice) ou revente_lea (montant fixe reversé à David)';
+COMMENT ON COLUMN products.prix_vente_lea IS 'Prix de vente à Lea (montant fixe reversé à David pour type revente_lea)';
+
+-- Verify the changes
+SELECT 
+    column_name, 
+    data_type, 
+    column_default,
+    is_nullable
+FROM information_schema.columns 
+WHERE table_name = 'products' 
+AND column_name IN ('product_type', 'prix_vente_lea')
+ORDER BY column_name;
+

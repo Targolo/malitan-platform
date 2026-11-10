@@ -1,0 +1,27 @@
+{# Badges de statut partagés : une seule couleur par statut, partout dans l'app. #}
+
+{% macro order_status(status) -%}
+{%- set tones = {'en_attente': 'peach', 'paye': 'primary', 'imprime': 'lavender', 'en_preparation': 'lavender',
+                 'pret_livraison': 'green', 'livre': 'neutral', 'annule': 'coral'} -%}
+<span class="tag tone-{{ tones.get(status.value, 'neutral') }}">{{ status|format_order_status }}</span>
+{%- endmacro %}
+
+{% macro fab_status(status) -%}
+{%- set labels = {'file_attente': "File d'attente", 'prochain': 'Prochain', 'en_cours': 'En cours',
+                  'imprime': 'Imprimé', 'livre_lea': 'Livré à Léa'} -%}
+{%- set tones = {'file_attente': 'neutral', 'prochain': 'peach', 'en_cours': 'primary',
+                 'imprime': 'green', 'livre_lea': 'green'} -%}
+<span class="tag tone-{{ tones.get(status.value, 'neutral') }}">{{ labels.get(status.value, status.value) }}</span>
+{%- endmacro %}
+
+{% macro delivery_mode(mode) -%}
+{%- if mode and mode.value == 'pickup' -%}
+<span class="tag tag-outline tone-lavender"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Pickup</span>
+{%- else -%}
+<span class="tag tag-outline tone-neutral"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>Livraison</span>
+{%- endif -%}
+{%- endmacro %}
+
+{% macro no_packaging() -%}
+<span class="tag tag-outline tone-peach">Ne pas emballer</span>
+{%- endmacro %}

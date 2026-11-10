@@ -1,0 +1,9 @@
+-- Migration from version 1.0.1 to 1.0.2
+-- Add delivery address field to orders table
+
+-- Add adresse_livraison column to orders table
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS adresse_livraison TEXT;
+
+-- Add comment for documentation
+COMMENT ON COLUMN orders.adresse_livraison IS 'Selected delivery address from client addresses (adresse_fr or adresse_he)';
+

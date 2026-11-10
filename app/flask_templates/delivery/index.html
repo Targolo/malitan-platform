@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block page_class %}page-delivery{% endblock %}
+{% from 'macros/icons.html' import icon %}
+
+{% block title %}Livraison - Malitan 3D{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>{{ icon('truck') }} Livraisons</h1>
+        <p class="page-subtitle">Commandes emballées ou prêtes sans emballage.</p>
+    </div>
+    <div class="mini-card">
+        <p class="mini-label">Commandes prêtes</p>
+        <p class="mini-value">{{ orders_count }}</p>
+    </div>
+</div>
+
+<div id="delivery-action-result"></div>
+
+{% if not pickup_orders and not delivery_orders %}
+<div class="empty-state">Aucune commande n'attend de livraison. </div>
+{% else %}
+
+    {% if pickup_orders %}
+    <div class="section-header">
+        <h2>{{ icon('home') }} Commandes Pickup</h2>
+    </div>
+    <div class="orders-compact-list">
+        {% for order in pickup_orders %}
+            {% include 'delivery/_card.html' %}
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if delivery_orders %}
+    <div class="section-header" style="margin-top: 2rem;">
+        <h2>{{ icon('truck') }} Commandes à Livrer</h2>
+    </div>
+    <div class="orders-compact-list">
+        {% for order in delivery_orders %}
+            {% include 'delivery/_card.html' %}
+        {% endfor %}
+    </div>
+    {% endif %}
+
+{% endif %}
+
+<script>
+function toggleOrderDetails(orderId) {
+    const details = document.getElementById('details-order-' + orderId);
+    const icon = document.getElementById('icon-order-' + orderId);
+    
+    if (details.style.display === 'none') {
+        details.style.display = 'block';
+        if (icon) icon.textContent = '▼';
+    } else {
+        details.style.display = 'none';
+        if (icon) icon.textContent = '▶';
+    }
+}
+
+function updateOrderStatus(orderId, newStatus) {
+    const confirmed = confirm('Êtes-vous sûr de vouloir marquer cette commande comme livrée ?');
+    if (!confirmed) {
+        return;
+    }
+    
+    fetch(`/livraison/orders/${orderId}/deliver`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        }
+    })
+    .then(function(response) {
+        if (response.ok) {
+            // Rechargement complet : un swap HTMX de tout le <body> part en boucle de requêtes au 2e clic
+            window.location.reload();
+        } else {
+            return response.json().then(function(data) {
+                throw new Error(data.error || 'Erreur lors du marquage comme livré');
+            });
+        }
+    })
+    .catch(function(error) {
+        if (error) {
+            alert('Erreur : ' + error.message);
+        }
+    });
+}
+
+// Exposer les fonctions globalement
+window.toggleOrderDetails = toggleOrderDetails;
+window.updateOrderStatus = updateOrderStatus;
+</script>
+{% endblock %}

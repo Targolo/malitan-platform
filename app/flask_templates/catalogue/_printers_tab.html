@@ -1,0 +1,62 @@
+{% from 'macros/icons.html' import icon %}
+<div class="catalog-tab-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <div>
+        <h2 style="margin: 0;">{{ icon('printer') }} Gestion des Imprimantes</h2>
+        <p style="color: var(--text-secondary); margin: 5px 0 0 0;">{{ printers|length }} imprimante(s)</p>
+    </div>
+    <div>
+        <button class="btn btn-primary" 
+                hx-get="{{ url_for('printer_form_new') }}" 
+                hx-target="#printerModalContent"
+                hx-swap="innerHTML"
+                onclick="openPrinterModal()">
+            {{ icon('plus') }} Nouvelle Imprimante
+        </button>
+    </div>
+</div>
+
+<div class="printers-list">
+    {% for printer in printers %}
+    <div class="catalog-item" id="printer-{{ printer.id }}">
+        <div class="catalog-item-header">
+            <div>
+                <h3 class="catalog-item-title" style="display: flex; align-items: center; gap: 10px;">
+                    {{ printer.nom }}
+                    {% if printer.statut.value == 'disponible' %}
+                    <span class="status-badge status-disponible">{{ icon('dot-green') }} Disponible</span>
+                    {% elif printer.statut.value == 'en_cours' %}
+                    <span class="status-badge status-en-cours">{{ icon('dot-peach') }} En cours</span>
+                    {% elif printer.statut.value == 'maintenance' %}
+                    <span class="status-badge status-maintenance">{{ icon('dot-coral') }} Maintenance</span>
+                    {% endif %}
+                </h3>
+                {% if printer.modele %}
+                <p style="color: var(--text-secondary); margin: 5px 0 0 0; font-size: var(--text-sm);">{{ printer.modele }}</p>
+                {% endif %}
+            </div>
+            <div class="catalog-item-actions">
+                <button class="btn btn-secondary btn-sm" 
+                        hx-get="{{ url_for('printer_form_edit', printer_id=printer.id) }}" 
+                        hx-target="#printerModalContent"
+                        hx-swap="innerHTML"
+                        onclick="openPrinterModal()">
+                    {{ icon('edit') }} Modifier
+                </button>
+            </div>
+        </div>
+        
+        {% if printer.observations %}
+        <div style="margin-top: 15px; padding: 10px; background: var(--bg); border-radius: 4px; font-size: var(--text-sm);">
+            <strong>{{ icon('file-text') }} Observations:</strong> {{ printer.observations }}
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+    
+    {% if not printers %}
+    <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
+        <p>Aucune imprimante trouvée</p>
+    </div>
+    {% endif %}
+</div>
+

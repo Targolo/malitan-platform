@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+{% from 'macros/icons.html' import icon %}
+
+{% block title %}Clients - Malitan 3D{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>{{ icon('users') }} Clients</h1>
+    </div>
+</div>
+
+<!-- Recherche avec HTMX - Mise à jour automatique sans rechargement -->
+<div class="search-bar">
+    <input type="search" 
+           name="search" 
+           value="{{ search }}"
+           placeholder="Rechercher un client (nom, prénom, email)..."
+           hx-get="{{ url_for('clients_list') }}"
+           hx-trigger="input changed delay:500ms"
+           hx-target="#clients-list"
+           hx-swap="innerHTML"
+           class="search-input"
+           autocomplete="nope">
+    
+    <button onclick="location.reload()" class="btn btn-secondary">{{ icon('refresh') }} Actualiser</button>
+</div>
+
+<div class="clients-header">
+    <p class="clients-count"><strong>{{ clients_with_orders|length }} client(s)</strong></p>
+    <button onclick="openClientModal('new')" class="btn btn-primary">{{ icon('plus') }} Nouveau Client</button>
+</div>
+
+<div class="clients-grid">
+    <div class="client-row client-row--header">
+        <div class="client-col client-name">Prénom Nom</div>
+        <div class="client-col client-email">Email</div>
+        <div class="client-col client-phone">Téléphone</div>
+        <div class="client-col client-orders-count">Nb commandes</div>
+        <div class="client-col client-total-spent">Total dépensé</div>
+        <div class="client-col client-notes">Notes</div>
+    </div>
+    <div id="clients-list" class="clients-compact-list">
+        {% for item in clients_with_orders %}
+            {% include 'clients/_client_card.html' %}
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Modal pour créer/modifier un client -->
+<!-- Modal pour afficher une commande -->
+<div id="order-view-modal" class="modal" style="display: none;">
+    <div class="modal-overlay" onclick="closeOrderViewModal()"></div>
+    <div class="modal-content modal-large">
+        <div class="modal-header">
+            <h2 id="order-view-modal-title">{{ icon('bag') }} Détails de la commande</h2>
+            <button class="modal-close" onclick="closeOrderViewModal()">×</button>
+        </div>
+        <div class="modal-body" id="order-view-modal-body">
+            <!-- Le contenu sera chargé via HTMX -->
+        </div>
+    </div>
+</div>
+
+<div id="client-modal" class="modal" style="display: none;">
+    <div class="modal-overlay" onclick="closeClientModal()"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="modal-title">{{ icon('plus') }} Nouveau Client</h2>
+            <button class="modal-close" onclick="closeClientModal()">×</button>
+        </div>
+        <div class="modal-body" id="modal-body">
+            <!-- Le contenu sera chargé via HTMX -->
+        </div>
+    </div>
+</div>
+
+<script>
+function openClientModal(mode, clientId = null) {
+    const modal = document.getElementById('client-modal');
+    const modalTitle = document.getElementById('modal-title');
+    const modalBody = document.getElementById('modal-body');
+    
+    if (mode === 'new') {
+        modalTitle.textContent = 'Nouveau Client';
+        // Utiliser HTMX pour charger le formulaire
+        htmx.ajax('GET', '{{ url_for("client_form_new") }}', {
+            target: modalBody,
+            swap: 'innerHTML'
+        }).then(() => {
+            modal.style.display = 'flex';
+        });
+    } else if (mode === 'edit' && clientId) {
+        modalTitle.textContent = 'Modifier le Client';
+        // Utiliser HTMX pour charger le formulaire
+        htmx.ajax('GET', `/clients/${clientId}/form`, {
+            target: modalBody,
+            swap: 'innerHTML'
+        }).then(() => {
+            modal.style.display = 'flex';
+        });
+    }
+}
+
+function closeClientModal() {
+    const modal = document.getElementById('client-modal');
+    modal.style.display = 'none';
+    document.getElementById('modal-body').innerHTML = '';
+}
+
+// Fermer avec Escape
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeClientModal();
+    }
+});
+
+// Exposer la fonction globalement pour HTMX
+window.openClientModal = openClientModal;
+window.closeClientModal = closeClientModal;
+
+// Écouter les événements HTMX pour fermer le modal après modification
+document.body.addEventListener('htmx:afterSwap', function(event) {
+    // Si on a modifié un client (la cible est une carte client)
+    if (event.detail.target && event.detail.target.id && event.detail.target.id.startsWith('client-')) {
+        setTimeout(function() {
+            if (typeof window.closeClientModal === 'function') {
+                window.closeClientModal();
+            }
+            // Recharger la liste
+            htmx.ajax('GET', '/clients', {
+                target: '#clients-list',
+                swap: 'innerHTML',
+                headers: {'HX-Request': 'true'}
+            });
+        }, 100);
+    }
+});
+
+// Écouter les requêtes réussies pour fermer le modal après création
+document.body.addEventListener('htmx:afterRequest', function(event) {
+    // Si c'est une création de client (pas de client_id dans la requête)
+    if (event.detail.pathInfo.requestPath.includes('/clients/new') && event.detail.successful) {
+        setTimeout(function() {
+            if (typeof window.closeClientModal === 'function') {
+                window.closeClientModal();
+            }
+            window.location.reload();
+        }, 100);
+    }
+});
+</script>
+<script>
+// Carte client : fonctions partagées par toutes les lignes (déplacé depuis clients/_client_card.html)
+function toggleClientDetails(clientId) {
+    const details = document.getElementById('details-' + clientId);
+    if (!details) return;
+    const isVisible = details.style.display !== 'none';
+    details.style.display = isVisible ? 'none' : 'block';
+}
+
+function viewOrder(orderId) {
+    const modal = document.getElementById('order-view-modal');
+    const modalTitle = document.getElementById('order-view-modal-title');
+    const modalBody = document.getElementById('order-view-modal-body');
+    
+    modalTitle.textContent = 'Détails de la commande';
+    modalBody.innerHTML = '<p>Chargement...</p>';
+    modal.style.display = 'flex';
+    
+    // Charger le formulaire détaillé de commande via HTMX
+    htmx.ajax('GET', `/orders/${orderId}/modal`, {
+        target: modalBody,
+        swap: 'innerHTML'
+    }).catch(function(error) {
+        modalBody.innerHTML = '<p style="color: red;">Erreur lors du chargement de la commande</p>';
+    });
+}
+
+function closeOrderViewModal() {
+    const modal = document.getElementById('order-view-modal');
+    modal.style.display = 'none';
+    document.getElementById('order-view-modal-body').innerHTML = '';
+}
+
+// Exposer la fonction globalement
+window.viewOrder = viewOrder;
+window.closeOrderViewModal = closeOrderViewModal;
+
+// Fermer avec Escape
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const modal = document.getElementById('order-view-modal');
+        if (modal && modal.style.display !== 'none') {
+            closeOrderViewModal();
+        }
+    }
+});
+</script>
+{% endblock %}
+
+

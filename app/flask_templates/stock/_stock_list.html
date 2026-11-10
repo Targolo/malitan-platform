@@ -1,0 +1,77 @@
+{% from 'macros/icons.html' import icon %}
+<div class="list-header">
+    <p><strong>{{ stock_count }} entrée(s)</strong></p>
+    {% if show_all %}
+    <span class="badge badge-muted">Stocks vides inclus</span>
+    {% endif %}
+</div>
+
+{% if not stock_entries %}
+<div class="empty-state">
+    Aucun stock ne correspond à ce filtre.
+</div>
+{% else %}
+    <div class="compact-list">
+        {% for entry in stock_entries %}
+        <div class="compact-row">
+            <div class="row-product">
+                <span class="row-icon">{{ icon('package') }}</span>
+                <strong>{{ entry.product.nom }}</strong>
+            </div>
+            <div class="row-color">
+                {% set color_hex = entry.color.code_hex %}
+                {% if color_hex %}
+                <span class="color-dot" style="background-color: {{ color_hex }};"></span>
+                {% endif %}
+                {{ entry.color.nom }}
+            </div>
+            <div class="row-stock">
+                {% if entry.quantite_disponible > 0 %}
+                <span class="badge badge-success stock-badge">{{ entry.quantite_disponible }} dispo</span>
+                {% else %}
+                <span class="badge badge-muted stock-badge">Vide</span>
+                {% endif %}
+            </div>
+            <div class="row-need">
+                {% set besoin = entry.besoin_production if entry.besoin_production else 0 %}
+                {% if besoin > 0 %}
+                    {% set stock_dispo = entry.quantite_disponible if entry.quantite_disponible else 0 %}
+                    {% if stock_dispo > besoin %}
+                        {% set badge_class = "badge-success" %}
+                    {% elif stock_dispo == besoin %}
+                        {% set badge_class = "badge-warning" %}
+                    {% else %}
+                        {% set badge_class = "badge-danger" %}
+                    {% endif %}
+                    <span class="badge {{ badge_class }} need-badge">{{ icon('printer') }} {{ besoin }} en prod</span>
+                {% endif %}
+            </div>
+            <div class="row-unpaid">
+                {% if entry.besoin_non_paye > 0 %}
+                <span class="badge badge-muted need-badge" title="Commandes en attente de paiement, pas encore en production">{{ icon('clock') }} {{ entry.besoin_non_paye }} non payé{{ 's' if entry.besoin_non_paye > 1 }}</span>
+                {% endif %}
+            </div>
+            <div class="row-meta">
+                <div class="meta-alert-threshold">
+                    {% if entry.product.alerte_stock and entry.quantite_disponible <= entry.product.alerte_stock %}
+                    <span class="status-pill danger">Stock bas</span>
+                    {% endif %}
+                    {% if entry.product.alerte_stock %}
+                    <small>Seuil : {{ entry.product.alerte_stock }}</small>
+                    {% endif %}
+                </div>
+                <small>MàJ {{ entry.updated_at.strftime('%d/%m/%Y') if entry.updated_at else '—' }}</small>
+            </div>
+            <div class="row-actions">
+                <button class="btn btn-secondary btn-sm" title="Ajouter 1 au stock" aria-label="Ajouter 1 au stock"
+                        hx-post="{{ url_for('stock_add_entry') }}"
+                        hx-vals='{"product_id": {{ entry.product_id }}, "color_id": {{ entry.color_id }}, "quantity": 1, "observations": "+1"}'
+                        hx-target="closest .row-actions" hx-swap="beforeend">+1</button>
+                <button class="btn btn-secondary btn-sm" onclick="openStockAdjustModal({{ entry.id }})">{{ icon('edit') }} Ajuster</button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+{% endif %}
+
+

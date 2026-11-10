@@ -1,0 +1,28 @@
+-- =====================================================
+-- Migration 1.0.5 to 1.0.6 - Add Invoice PDF Support
+-- =====================================================
+-- Date: 2025-01-XX
+-- Description: Add invoice_path column to orders table for PDF invoice storage
+-- 
+-- Changes:
+-- - Add invoice_path VARCHAR(500) column to orders table
+-- =====================================================
+
+-- =====================================================
+-- 1. ADD invoice_path COLUMN TO orders TABLE
+-- =====================================================
+
+ALTER TABLE orders 
+ADD COLUMN IF NOT EXISTS invoice_path VARCHAR(500);
+
+COMMENT ON COLUMN orders.invoice_path IS 'Path to generated invoice PDF file';
+
+-- =====================================================
+-- 2. VERIFICATION
+-- =====================================================
+
+-- Verify column was added
+SELECT column_name, data_type, character_maximum_length 
+FROM information_schema.columns 
+WHERE table_name = 'orders' AND column_name = 'invoice_path';
+

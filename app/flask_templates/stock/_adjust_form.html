@@ -1,0 +1,44 @@
+{% from 'macros/icons.html' import icon %}
+<div class="compact-form">
+    <p class="modal-subtitle">
+        <strong>{{ stock_entry.product.nom }}</strong> —
+        {{ stock_entry.color.nom }}
+    </p>
+    <div class="form-group">
+        <label>Quantité actuelle</label>
+        <div class="badge badge-muted">{{ stock_entry.quantite_disponible }}</div>
+    </div>
+    <form hx-post="{{ url_for('stock_adjust', stock_id=stock_entry.id) }}"
+          hx-target="#stock-adjust-modal-body"
+          hx-swap="innerHTML">
+        <div class="form-group">
+            <label for="adjust-quantity">Nouvelle quantité *</label>
+            <input id="adjust-quantity"
+                   type="number"
+                   name="new_quantity"
+                   min="0"
+                   value="{{ stock_entry.quantite_disponible }}"
+                   required>
+        </div>
+        <div class="form-group">
+            <label for="adjust-observations">Raison</label>
+            <input id="adjust-observations"
+                   type="text"
+                   name="observations"
+                   placeholder="Inventaire, correction…">
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">{{ icon('save') }} Enregistrer</button>
+            <button type="button" class="btn btn-ghost" onclick="closeStockAdjustModal()">Annuler</button>
+        </div>
+    </form>
+</div>
+
+
+
+
+
+
+
+
+

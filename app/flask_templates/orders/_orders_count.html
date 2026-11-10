@@ -1,0 +1,2 @@
+{# Compteur de commandes : rendu dans la page, et en out-of-band par _orders_list_only.html pour rester à jour après un swap HTMX de #orders-list #}
+<p id="orders-count" class="orders-count"{% if oob %} hx-swap-oob="true"{% endif %}><strong>{{ orders|length }} commande(s)</strong></p>

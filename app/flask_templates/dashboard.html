@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% from 'macros/icons.html' import icon %}
+{% from 'macros/badges.html' import order_status, fab_status, delivery_mode, no_packaging %}
+
+{% block title %}Accueil - Malitan 3D{% endblock %}
+
+{% block content %}
+{% set alerts_count = alerts.total if alerts is defined and alerts else 0 %}
+
+<div class="page-header">
+    <div>
+        <h1>{{ icon('home') }} Tableau de bord</h1>
+        <p class="page-subtitle">Vue instantanée des opérations prioritaires</p>
+    </div>
+</div>
+
+<!-- Alerts as pills -->
+{% if alerts_count > 0 %}
+<div class="alerts-panel">
+    {% for alert in alerts.critical %}
+    <div class="alert-chip critical">
+        <span class="alert-dot"></span>
+        <span class="alert-message">{{ alert.message }}</span>
+    </div>
+    {% endfor %}
+    {% for alert in alerts.warning %}
+    <div class="alert-chip warning">
+        <span class="alert-dot"></span>
+        <span class="alert-message">{{ alert.message }}</span>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Metric cards -->
+<div class="metrics-grid metrics-grid--5">
+
+    <a class="metric-card" href="{{ url_for('orders_list', status='en_attente') }}">
+        <div class="metric-card-header">
+            <div class="metric-icon coral">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/>
+                    <line x1="3" y1="6" x2="21" y2="6"/>
+                    <path d="M16 10a4 4 0 01-8 0"/>
+                </svg>
+            </div>
+            {% set v = metrics.get('total_en_attente_paiement', 0) %}
+            {% if v > 0 %}<span class="metric-badge-pill badge-pill-warn">{{ v }} en attente</span>{% endif %}
+        </div>
+        <div class="metric-num">{{ v }}</div>
+        <div class="metric-label">Commandes en attente de paiement</div>
+    </a>
+
+    <a class="metric-card" href="{{ url_for('production') }}">
+        <div class="metric-card-header">
+            <div class="metric-icon blue">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+                    <polyline points="2 17 12 22 22 17"/>
+                    <polyline points="2 12 12 17 22 12"/>
+                </svg>
+            </div>
+            {% set v2 = metrics.get('total_en_attente_impression', 0) %}
+            {% if v2 > 0 %}<span class="metric-badge-pill badge-pill-neutral">à imprimer</span>{% endif %}
+        </div>
+        <div class="metric-num">{{ v2 }}</div>
+        <div class="metric-label">Commandes en attente d'impression</div>
+    </a>
+
+    <a class="metric-card" href="{{ url_for('production') }}">
+        <div class="metric-card-header">
+            <div class="metric-icon lavender">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="2" y="3" width="20" height="14" rx="2"/>
+                    <line x1="8" y1="21" x2="16" y2="21"/>
+                    <line x1="12" y1="17" x2="12" y2="21"/>
+                </svg>
+            </div>
+            {% set v3 = metrics.get('total_objets_en_cours', 0) %}
+            {% if v3 > 0 %}<span class="metric-badge-pill badge-pill-neutral">{{ v3 }} en cours</span>{% endif %}
+        </div>
+        <div class="metric-num">{{ metrics.get('total_objets_en_prod', 0) }}</div>
+        <div class="metric-label">Objets à imprimer</div>
+    </a>
+
+    <a class="metric-card" href="{{ url_for('packaging') }}">
+        <div class="metric-card-header">
+            <div class="metric-icon peach">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/>
+                    <circle cx="12" cy="10" r="3"/>
+                </svg>
+            </div>
+            {% set v5 = metrics.get('total_a_emballer', 0) %}
+            {% if v5 > 0 %}<span class="metric-badge-pill badge-pill-neutral">à emballer</span>{% endif %}
+        </div>
+        <div class="metric-num">{{ v5 }}</div>
+        <div class="metric-label">Commandes à l'emballage</div>
+    </a>
+
+    <a class="metric-card" href="{{ url_for('delivery') }}">
+        <div class="metric-card-header">
+            <div class="metric-icon blue">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="1" y="3" width="15" height="13"/>
+                    <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/>
+                    <circle cx="5.5" cy="18.5" r="2.5"/>
+                    <circle cx="18.5" cy="18.5" r="2.5"/>
+                </svg>
+            </div>
+            {% set v6 = metrics.get('total_en_attente_livraison', 0) %}
+            {% if v6 > 0 %}<span class="metric-badge-pill badge-pill-neutral">à livrer</span>{% endif %}
+        </div>
+        <div class="metric-num">{{ v6 }}</div>
+        <div class="metric-label">Commandes en attente de livraison</div>
+    </a>
+
+</div>
+
+<!-- Empty state when there are no active alerts -->
+{% if alerts_count == 0 %}
+<div class="card" style="background:var(--bg-card); padding:1rem 1.5rem; margin-bottom:1.5rem; display:flex; align-items:center; gap:0.75rem;">
+    <span style="width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;"></span>
+    <span style="font-size: var(--text-sm); color:var(--text-secondary);">Tout est sous contrôle — aucune alerte active.</span>
+</div>
+{% endif %}
+
+<!-- Two-column: production queue + latest orders -->
+<div class="dash-two-col">
+
+    <!-- File de fabrication -->
+    <div class="card">
+        <div class="card-top">
+            <a href="{{ url_for('production') }}" class="card-heading">File de fabrication</a>
+            {% set nb_objets = metrics.get('total_objets_en_prod', 0) %}
+            <span class="card-sub">{{ nb_objets }} objet{% if nb_objets != 1 %}s{% endif %} à imprimer</span>
+        </div>
+        <div>
+            {% for line in production_queue %}
+            {% set fab = line.statut_fabrication.value %}
+            <a class="q-item" href="{{ url_for('production') }}">
+                <span class="q-dot {% if fab == 'en_cours' %}live{% elif fab == 'prochain' %}next{% else %}wait{% endif %}"></span>
+                <div class="q-info">
+                    <div class="q-name">
+                        {{ line.product.nom if line.product else 'Produit' }}
+                        {%- if line.color %} — {{ line.color.nom }}{% endif -%}
+                        {%- if line.quantite and line.quantite > 1 %} ×{{ line.quantite }}{% endif %}
+                    </div>
+                    <div class="q-ref">{{ line.order.numero_commande }} · {{ line.order.client.nom if line.order.client else 'Client' }}</div>
+                </div>
+                {{ fab_status(line.statut_fabrication) }}
+            </a>
+            {% else %}
+            <div class="dash-empty">Aucun objet à imprimer.</div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Dernières commandes -->
+    <div class="card">
+        <div class="card-top">
+            <a href="{{ url_for('orders_list') }}" class="card-heading">Dernières commandes</a>
+            {% set nb_commandes = metrics.get('total_commandes_en_cours', 0) %}
+            <span class="card-sub">{{ nb_commandes }} commande{% if nb_commandes != 1 %}s{% endif %} en cours</span>
+        </div>
+        <div>
+            {% for order in recent_orders %}
+            {% set st = order.statut.value %}
+            <a class="o-row" href="{{ url_for('order_view', order_id=order.id) }}">
+                <div class="o-info">
+                    <div class="o-client">{{ order.client.nom if order.client else 'Client' }}</div>
+                    <div class="o-ref">{{ order.numero_commande }} · {{ order.date_commande|israel_time('%d %b') }}</div>
+                </div>
+                <div class="o-end">
+                    <span class="o-price">₪{{ order.total_prix_vente|round(0)|int }}</span>
+                    {{ order_status(order.statut) }}
+                </div>
+            </a>
+            {% else %}
+            <div class="dash-empty">Aucune commande en cours.</div>
+            {% endfor %}
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,523 @@
+{% from 'macros/icons.html' import icon %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>{% block title %}Malitan 3D Manager{% endblock %}</title>
+    
+    {% if app_logo_path %}
+    <link rel="icon" href="{{ url_for('static', filename=app_logo_path) }}">
+    {% endif %}
+    
+    <!-- HTMX - Interactions modernes sans JS complexe -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    
+    <!-- Google Fonts: Bricolage Grotesque (display) + Figtree (body) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700&family=Figtree:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v=app_version) }}">
+    
+    <!-- Script pour désactiver l'autocomplétion du navigateur (CRM) -->
+    <script>
+    // Désactiver complètement l'autocomplétion du navigateur pour tous les formulaires
+    (function() {
+        function disableAutocompleteOnInput(input) {
+            if (!input) return;
+            // Ne JAMAIS toucher aux valeurs - seulement aux attributs d'autocomplétion
+            
+            // Techniques multiples pour Edge/Chrome qui sont très têtus
+            input.setAttribute('autocomplete', 'off');
+            input.setAttribute('autocomplete', 'nope');
+            input.setAttribute('autocomplete', 'new-password'); // Edge respecte mieux cette valeur
+            input.setAttribute('autocorrect', 'off');
+            input.setAttribute('autocapitalize', 'off');
+            input.setAttribute('spellcheck', 'false');
+            
+            // Attributs spécifiques pour désactiver les gestionnaires de mots de passe
+            input.setAttribute('data-lastpass-ignore', 'true');
+            input.setAttribute('data-form-type', 'other');
+            input.setAttribute('data-1p-ignore', 'true');
+            input.setAttribute('data-bwignore', 'true');
+            
+            // Pour Edge spécifiquement
+            input.setAttribute('data-edge-autofill', 'off');
+            input.setAttribute('data-edge-autocomplete', 'off');
+            
+            // Pour les champs email/tel/text, utiliser des techniques spéciales
+            if (input.type === 'email' || input.type === 'tel' || input.type === 'text' || input.type === 'search') {
+                // Changer temporairement le type pour confondre Edge
+                const originalType = input.type;
+                input.setAttribute('data-original-type', originalType);
+                input.setAttribute('autocomplete', 'new-password');
+                
+                // Écouter le focus pour réappliquer
+                input.addEventListener('focus', function() {
+                    this.setAttribute('autocomplete', 'new-password');
+                    this.setAttribute('type', originalType);
+                }, { once: true });
+            }
+            
+            // Désactiver aussi via les propriétés JavaScript
+            try {
+                input.autocomplete = 'off';
+                input.autocorrect = 'off';
+                input.autocapitalize = 'off';
+            } catch(e) {}
+            
+            // Empêcher Edge de détecter les champs comme remplissables
+            input.addEventListener('focus', function(e) {
+                e.target.setAttribute('autocomplete', 'new-password');
+                e.target.setAttribute('readonly', 'readonly');
+                setTimeout(function() {
+                    e.target.removeAttribute('readonly');
+                }, 1);
+            }, { once: false });
+        }
+        
+        function disableAutocomplete(form) {
+            if (!form) return;
+            const inputs = form.querySelectorAll('input, textarea');
+            inputs.forEach(disableAutocompleteOnInput);
+        }
+        
+        // Appliquer immédiatement et au chargement
+        function applyToAllForms() {
+            document.querySelectorAll('form').forEach(disableAutocomplete);
+            document.querySelectorAll('input, textarea').forEach(disableAutocompleteOnInput);
+        }
+        
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', applyToAllForms);
+        } else {
+            applyToAllForms();
+        }
+    })();
+    </script>
+    
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <button class="btn-hamburger"
+            id="sidebar-toggle"
+            aria-label="Ouvrir le menu de navigation"
+            aria-expanded="false"
+            aria-controls="main-sidebar">☰</button>
+    <div class="sidebar-overlay" id="sidebar-overlay" aria-hidden="true"></div>
+
+    <nav class="sidebar" id="main-sidebar" aria-label="Navigation principale">
+
+        <!-- Logo -->
+        <div class="sidebar-header">
+            <div class="logo-row">
+                <div class="logo-icon">M3</div>
+                <div>
+                    <p class="logo-name">{{ app_name }}</p>
+                    <p class="logo-ver">v{{ app_version }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- User profile strip -->
+        <div class="sidebar-profile">
+            <div class="profile-pic">{{ session.get('username', 'U')[0]|upper }}</div>
+            <div class="profile-info">
+                <p class="profile-name">{{ session.get('username', 'User')|capitalize }}</p>
+                <p class="profile-role">
+                    {%- if session.get('username') == 'david' -%}Admin · Production
+                    {%- elif session.get('username') == 'lea' -%}Packaging · Livraison
+                    {%- else -%}Lecture seule{%- endif -%}
+                </p>
+            </div>
+            <a href="{{ url_for('logout') }}" class="btn-logout-mini" aria-label="Se déconnecter" title="Déconnexion">⏻</a>
+        </div>
+
+        <!-- Navigation -->
+        <div class="sidebar-nav">
+
+            <div class="nav-section">
+                <span class="nav-label">Menu</span>
+
+                <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}"
+                   href="{{ url_for('dashboard') }}">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                    Accueil
+                </a>
+
+                <a class="nav-link {% if request.endpoint in ['orders_list','order_view','order_new','order_edit'] %}active{% endif %}"
+                   href="{{ url_for('orders_list') }}">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+                    Commandes
+                    {% if nb_commandes_non_payees and nb_commandes_non_payees > 0 %}
+                    <span class="nav-count">{{ nb_commandes_non_payees }}</span>
+                    {% endif %}
+                </a>
+
+                <a class="nav-link {% if request.endpoint in ['clients_list','client_view','client_new','client_edit'] %}active{% endif %}"
+                   href="{{ url_for('clients_list') }}">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+                    Clients
+                </a>
+
+                <a class="nav-link {% if request.endpoint == 'catalogue' %}active{% endif %}"
+                   href="{{ url_for('catalogue') }}">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                    Catalogue
+                </a>
+            </div>
+
+            <div class="nav-section">
+                <span class="nav-label">Production</span>
+
+                <a class="nav-link {% if request.endpoint == 'production' %}active{% endif %}"
+                   href="{{ url_for('production') }}">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+                    Production
+                    {% if nb_objets_file_attente and nb_objets_file_attente > 0 %}
+                    <span class="nav-count">{{ nb_objets_file_attente }}</span>
+                    {% endif %}
+                </a>
+
+                <a class="nav-link {% if request.endpoint == 'stock_finished_goods' %}active{% endif %}"
+                   href="{{ url_for('stock_finished_goods') }}">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
+                    Stock Produits Finis
+                </a>
+            </div>
+
+            <div class="nav-section">
+                <span class="nav-label">Logistique</span>
+
+                <a class="nav-link {% if request.endpoint == 'packaging' %}active{% endif %}"
+                   href="{{ url_for('packaging') }}">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/></svg>
+                    Emballage
+                    {% if nb_objets_a_emballer and nb_objets_a_emballer > 0 %}
+                    <span class="nav-count">{{ nb_objets_a_emballer }}</span>
+                    {% endif %}
+                </a>
+
+                <a class="nav-link {% if request.endpoint == 'delivery' %}active{% endif %}"
+                   href="{{ url_for('delivery') }}">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                    Livraison
+                    {% if nb_objets_a_envoyer and nb_objets_a_envoyer > 0 %}
+                    <span class="nav-count">{{ nb_objets_a_envoyer }}</span>
+                    {% endif %}
+                </a>
+            </div>
+
+            <div class="nav-section">
+                <span class="nav-label">Finances &amp; Outils</span>
+
+                <a class="nav-link {% if request.endpoint == 'finances' %}active{% endif %}"
+                   href="{{ url_for('finances') }}">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+                    Finances
+                </a>
+
+                <a class="nav-link {% if request.endpoint == 'analytics' %}active{% endif %}"
+                   href="{{ url_for('analytics') }}">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                    Analytics
+                </a>
+
+                <a class="nav-link {% if request.endpoint == 'settings' %}active{% endif %}"
+                   href="{{ url_for('settings') }}">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+                    Outils
+                </a>
+            </div>
+
+        </div>
+
+        <div class="sidebar-bottom">Malitan 3D · Raspberry Pi 5</div>
+    </nav>
+    
+    <main class="main-content {% block page_class %}{% endblock %}">
+        {% block content %}{% endblock %}
+    </main>
+
+    {% if session.get('user_id') %}
+    {% set more_active = request.endpoint not in ['dashboard', 'orders_list', 'order_view', 'production', 'packaging'] %}
+    <nav class="bottom-nav" aria-label="Navigation rapide">
+        <a href="{{ url_for('dashboard') }}" class="bottom-nav-item {% if request.endpoint == 'dashboard' %}active{% endif %}">{{ icon('home') }}<span>Accueil</span></a>
+        <a href="{{ url_for('orders_list') }}" class="bottom-nav-item {% if request.endpoint in ['orders_list', 'order_view'] %}active{% endif %}">{{ icon('bag') }}<span>Commandes</span>{% if nb_commandes_non_payees %}<em class="bottom-nav-count">{{ nb_commandes_non_payees }}</em>{% endif %}</a>
+        <a href="{{ url_for('production') }}" class="bottom-nav-item {% if request.endpoint == 'production' %}active{% endif %}">{{ icon('layers') }}<span>Production</span>{% if nb_objets_file_attente %}<em class="bottom-nav-count">{{ nb_objets_file_attente }}</em>{% endif %}</a>
+        <a href="{{ url_for('packaging') }}" class="bottom-nav-item {% if request.endpoint == 'packaging' %}active{% endif %}">{{ icon('gift') }}<span>Emballage</span>{% if nb_objets_a_emballer %}<em class="bottom-nav-count">{{ nb_objets_a_emballer }}</em>{% endif %}</a>
+        <button type="button" class="bottom-nav-item {% if more_active %}active{% endif %}" onclick="document.getElementById('sidebar-toggle').click()" aria-label="Plus de pages">{{ icon('menu') }}<span>Plus</span>{% if nb_objets_a_envoyer %}<em class="bottom-nav-count">{{ nb_objets_a_envoyer }}</em>{% endif %}</button>
+    </nav>
+    {% endif %}
+
+    <div id="confirm-modal" class="modal" style="display: none;">
+        <div class="modal-overlay" onclick="window.closeConfirmModal && window.closeConfirmModal()"></div>
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h2>Confirmation</h2>
+                <button class="modal-close" onclick="window.closeConfirmModal && window.closeConfirmModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <p id="confirm-modal-question">Confirmer cette action ?</p>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="confirm-modal-cancel">Annuler</button>
+                <button class="btn btn-primary" id="confirm-modal-confirm">Confirmer</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+    (function() {
+        const confirmModal = document.getElementById('confirm-modal');
+        if (!confirmModal) return;
+        const questionEl = document.getElementById('confirm-modal-question');
+        const confirmBtn = document.getElementById('confirm-modal-confirm');
+        const cancelBtn = document.getElementById('confirm-modal-cancel');
+        const overlay = confirmModal.querySelector('.modal-overlay');
+        let pendingAction = null;
+
+        function closeModal() {
+            confirmModal.style.display = 'none';
+            questionEl.textContent = '';
+            pendingAction = null;
+        }
+
+        function openModal(question, action) {
+            questionEl.textContent = question || 'Confirmer cette action ?';
+            pendingAction = action;
+            confirmModal.style.display = 'flex';
+        }
+
+        cancelBtn.addEventListener('click', closeModal);
+        confirmBtn.addEventListener('click', function() {
+            if (typeof pendingAction === 'function') {
+                pendingAction();
+            }
+            closeModal();
+        });
+        if (overlay) {
+            overlay.addEventListener('click', closeModal);
+        }
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape' && confirmModal.style.display === 'flex') {
+                closeModal();
+            }
+        });
+
+        window.closeConfirmModal = closeModal;
+
+        document.body.addEventListener('htmx:confirm', function(evt) {
+            evt.preventDefault();
+            evt.detail.handled = true;
+            const sourceEl = evt.detail && evt.detail.elt;
+            const question = evt.detail.question;
+            const needsConfirm = sourceEl && sourceEl.hasAttribute('data-confirm');
+            if (!needsConfirm) {
+                if (evt.detail && typeof evt.detail.issueRequest === 'function') {
+                    evt.detail.issueRequest();
+                }
+                return;
+            }
+            let originalConfirmAttr = null;
+            if (sourceEl) {
+                originalConfirmAttr = sourceEl.getAttribute('hx-confirm');
+            }
+            openModal(question, function() {
+                if (sourceEl && originalConfirmAttr !== null) {
+                    sourceEl.removeAttribute('hx-confirm');
+                }
+                if (evt.detail && typeof evt.detail.issueRequest === 'function') {
+                    evt.detail.issueRequest();
+                }
+                if (sourceEl && originalConfirmAttr !== null) {
+                    setTimeout(function() {
+                        sourceEl.setAttribute('hx-confirm', originalConfirmAttr);
+                    }, 0);
+                }
+            });
+        }, true);
+    })();
+    </script>
+
+    <script>
+    // Erreurs HTMX (4xx/5xx) : HTMX ne swappe pas ces réponses, on affiche un toast
+    (function() {
+        function extractMessage(xhr) {
+            const raw = (xhr && xhr.responseText) || '';
+            try {
+                const data = JSON.parse(raw);
+                if (data && data.error) return data.error;
+            } catch (e) {}
+            const tmp = document.createElement('div');
+            tmp.innerHTML = raw;
+            tmp.querySelectorAll('script,style').forEach(function(n) { n.remove(); });
+            const text = (tmp.textContent || '').replace(/\s+/g, ' ').trim();
+            if (text && text.length < 300) return text;
+            return 'Erreur serveur (' + (xhr ? xhr.status : '?') + '). Rechargez la page et réessayez.';
+        }
+        window.showErrorToast = function(message) {
+            let toast = document.getElementById('error-toast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'error-toast';
+                toast.className = 'error-toast alert-error';
+                toast.setAttribute('role', 'alert');
+                toast.addEventListener('click', function() { toast.classList.remove('visible'); });
+                document.body.appendChild(toast);
+            }
+            toast.textContent = message;
+            toast.classList.add('visible');
+            clearTimeout(toast._timer);
+            toast._timer = setTimeout(function() { toast.classList.remove('visible'); }, 6000);
+        };
+        document.body.addEventListener('htmx:responseError', function(evt) {
+            window.showErrorToast(extractMessage(evt.detail.xhr));
+        });
+        document.body.addEventListener('htmx:sendError', function() {
+            window.showErrorToast('Serveur injoignable. Vérifiez la connexion et réessayez.');
+        });
+    })();
+    </script>
+
+    <script>
+    // Réduire le délai d'apparition des tooltips à 500ms
+    (function() {
+        let tooltipTimeout;
+        let currentTooltip = null;
+        
+        function createTooltip(element, text) {
+            // Supprimer l'ancien tooltip s'il existe
+            if (currentTooltip) {
+                currentTooltip.remove();
+                currentTooltip = null;
+            }
+            
+            const tooltip = document.createElement('div');
+            tooltip.className = 'custom-tooltip';
+            tooltip.textContent = text;
+            tooltip.style.cssText = `
+                position: absolute;
+                background: #333;
+                color: white;
+                padding: 6px 10px;
+                border-radius: 4px;
+                font-size: 0.85em;
+                white-space: nowrap;
+                z-index: 10000;
+                pointer-events: none;
+                opacity: 0;
+                transition: opacity 0.1s;
+            `;
+            
+            document.body.appendChild(tooltip);
+            currentTooltip = tooltip;
+            
+            const rect = element.getBoundingClientRect();
+            tooltip.style.left = rect.left + (rect.width / 2) - (tooltip.offsetWidth / 2) + 'px';
+            tooltip.style.top = rect.top - tooltip.offsetHeight - 8 + 'px';
+            
+            // Ajuster si le tooltip dépasse de l'écran
+            setTimeout(() => {
+                const tooltipRect = tooltip.getBoundingClientRect();
+                if (tooltipRect.left < 0) {
+                    tooltip.style.left = rect.left + 'px';
+                }
+                if (tooltipRect.right > window.innerWidth) {
+                    tooltip.style.left = (rect.right - tooltip.offsetWidth) + 'px';
+                }
+                if (tooltipRect.top < 0) {
+                    tooltip.style.top = rect.bottom + 8 + 'px';
+                }
+                tooltip.style.opacity = '1';
+            }, 10);
+        }
+        
+        function removeTooltip() {
+            if (currentTooltip) {
+                currentTooltip.style.opacity = '0';
+                setTimeout(() => {
+                    if (currentTooltip) {
+                        currentTooltip.remove();
+                        currentTooltip = null;
+                    }
+                }, 100);
+            }
+        }
+        
+        document.addEventListener('mouseover', function(e) {
+            const element = e.target;
+            const title = element.getAttribute('title');
+            
+            if (title && title.trim()) {
+                // Supprimer le tooltip natif temporairement
+                element.setAttribute('data-original-title', title);
+                element.removeAttribute('title');
+                
+                tooltipTimeout = setTimeout(() => {
+                    createTooltip(element, title);
+                }, 500); // Délai de 500ms
+            }
+        }, true);
+        
+        document.addEventListener('mouseout', function(e) {
+            const element = e.target;
+            const originalTitle = element.getAttribute('data-original-title');
+            
+            if (originalTitle) {
+                clearTimeout(tooltipTimeout);
+                removeTooltip();
+                element.setAttribute('title', originalTitle);
+                element.removeAttribute('data-original-title');
+            }
+        }, true);
+    })();
+    </script>
+    
+    <script>
+    (function() {
+        var toggle = document.getElementById('sidebar-toggle');
+        var overlay = document.getElementById('sidebar-overlay');
+        if (!toggle || !overlay) return;
+        function openSidebar()  { document.body.classList.add('sidebar-open');    toggle.setAttribute('aria-expanded', 'true');  }
+        function closeSidebar() { document.body.classList.remove('sidebar-open'); toggle.setAttribute('aria-expanded', 'false'); }
+        toggle.addEventListener('click', function() {
+            document.body.classList.contains('sidebar-open') ? closeSidebar() : openSidebar();
+        });
+        overlay.addEventListener('click', closeSidebar);
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && document.body.classList.contains('sidebar-open')) closeSidebar();
+        });
+    })();
+    </script>
+
+    {% block extra_scripts %}{% endblock %}
+    <script>
+    // Mobile : les zones de filtres marquées data-mobile-collapse sont repliées derrière un bouton « Filtres »
+    (function () {
+        if (!window.matchMedia('(max-width: 780px)').matches) return;
+        document.querySelectorAll('[data-mobile-collapse]').forEach(function (zone) {
+            var active = Array.prototype.some.call(zone.querySelectorAll('select, input[type="text"], input[type="search"]'), function (el) {
+                if (el.tagName === 'SELECT') return el.selectedIndex > 0;
+                return el.value.trim() !== '';
+            });
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'btn btn-secondary btn-sm filters-toggle';
+            btn.setAttribute('aria-expanded', 'false');
+            btn.innerHTML = '{{ icon("filter")|replace("\n", "")|safe }} ' + zone.dataset.mobileCollapse + (active ? ' (actifs)' : '');
+            zone.classList.add('is-collapsed');
+            btn.addEventListener('click', function () {
+                var collapsed = zone.classList.toggle('is-collapsed');
+                btn.setAttribute('aria-expanded', String(!collapsed));
+            });
+            zone.parentNode.insertBefore(btn, zone);
+        });
+    })();
+    </script>
+</body>
+</html>
+
+

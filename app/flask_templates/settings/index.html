@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block page_class %}page-settings{% endblock %}
+{% from 'macros/icons.html' import icon %}
+
+{% block title %}Outils - Malitan 3D{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>{{ icon('settings') }} Outils</h1>
+        <p class="page-subtitle">Liens, exports, sauvegardes et notifications</p>
+    </div>
+    <a href="{{ url_for('settings_telegram') }}" class="btn btn-secondary">{{ icon('bell') }} Notifications Telegram</a>
+</div>
+
+<div class="settings-grid">
+    <div class="card">
+        <h2>{{ icon('link') }} Liens utiles</h2>
+        <ul class="doc-list">
+            <li><a href="https://drive.google.com/drive/folders/1tjUzxcKNCW2r6X1xJCeuqt1EXyNK4Ida" target="_blank">Google Drive</a></li>
+            <li><a href="https://dash.cloudflare.com/" target="_blank">Cloudflare (tunnel HTTPS)</a></li>
+            <li><a href="https://dcc.godaddy.com/manage/la-mifa.com/dns" target="_blank">GoDaddy (domaine la-mifa.com)</a></li>
+            <li><a href="https://app.brevo.com/" target="_blank">Emailing (Brevo)</a></li>
+            <li><a href="https://shop.caliber.co.il/346608-Polymaker-Panchroma-PLA" target="_blank">Achats filaments (Code: LUCKY7)</a></li>
+            <li><a href="https://github.com/Targolo/Malitan-3D" target="_blank">Code Source (GitHub)</a></li>
+        </ul>
+    </div>
+    <div class="card">
+        <h2>{{ icon('briefcase') }} Infos de l'entreprise</h2>
+        <p><strong>Nom :</strong> לאה אבן מוחא</p>
+        <p><strong>Enseigne :</strong> לאה סטודיו</p>
+        <p><strong>T.Z. :</strong> 336393723</p>
+        <p><strong>Adresse :</strong> רועי קליין 23 דירה 17, בית שמש</p>
+        <p><strong>Téléphone :</strong> 0522970257</p>
+        <p><strong>Email :</strong> Malitan.studio@gmail.com</p>
+    </div>
+</div>
+
+<div class="card">
+    <h2>{{ icon('download') }} Exports Excel</h2>
+    <div class="export-grid">
+        <form method="post" action="{{ url_for('settings_export', dataset='orders') }}">
+            <button type="submit" class="btn btn-secondary">{{ icon('bag') }} Export Commandes</button>
+        </form>
+        <form method="post" action="{{ url_for('settings_export', dataset='clients') }}">
+            <button type="submit" class="btn btn-secondary">{{ icon('users') }} Export Clients</button>
+        </form>
+        <form method="post" action="{{ url_for('settings_export', dataset='products') }}">
+            <button type="submit" class="btn btn-secondary">{{ icon('droplet') }} Export Produits</button>
+        </form>
+        <form method="post" action="{{ url_for('settings_export', dataset='stock') }}">
+            <button type="submit" class="btn btn-secondary">{{ icon('package') }} Export Stock</button>
+        </form>
+        <form method="post" action="{{ url_for('settings_export', dataset='finances') }}">
+            <button type="submit" class="btn btn-secondary">{{ icon('dollar') }} Export Finances</button>
+        </form>
+        <form method="post" action="{{ url_for('settings_export', dataset='full') }}">
+            <button type="submit" class="btn btn-primary">{{ icon('save') }} Export Complet</button>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <h2>{{ icon('save') }} Sauvegardes & Statistiques</h2>
+    <div class="backup-grid">
+        <div>
+            <p><strong>Sauvegarde automatique :</strong></p>
+            <p>Chaque nuit à 3h, la base de production (<code>malitan_prod.db</code>) est copiée vers OneDrive (<code>Malitan3D_Backups/</code>) via rclone. Rétention : 30 jours.</p>
+            <p><strong>Sauvegarde manuelle :</strong></p>
+            <p><code>scp davids@davidpi.local:/srv/malitan3d/data/malitan_prod.db ./</code></p>
+        </div>
+        <div>
+            <p><strong>Restauration :</strong></p>
+            <ul>
+                <li>Télécharger le fichier <code>.db</code> depuis OneDrive</li>
+                <li>Copier vers le Pi : <code>scp malitan_prod.db davids@davidpi.local:/srv/malitan3d/data/malitan_prod.db</code></li>
+                <li>Redémarrer : <code>ssh davids@davidpi.local "sudo systemctl restart malitan3d"</code></li>
+            </ul>
+        </div>
+    </div>
+    <div class="metrics-grid">
+        <div class="metric-card">
+            <h3>Commandes</h3>
+            <p class="metric-value">{{ counts.orders }}</p>
+        </div>
+        <div class="metric-card">
+            <h3>Clients</h3>
+            <p class="metric-value">{{ counts.clients }}</p>
+        </div>
+        <div class="metric-card">
+            <h3>Produits</h3>
+            <p class="metric-value">{{ counts.products }}</p>
+        </div>
+        <div class="metric-card">
+            <h3>Couleurs</h3>
+            <p class="metric-value">{{ counts.colors }}</p>
+        </div>
+        <div class="metric-card">
+            <h3>Imprimantes</h3>
+            <p class="metric-value">{{ counts.printers }}</p>
+        </div>
+        <div class="metric-card">
+            <h3>Lignes de commande</h3>
+            <p class="metric-value">{{ counts.order_lines }}</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+
+
+
+
+
+
+

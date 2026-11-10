@@ -1,0 +1,35 @@
+{% from 'macros/icons.html' import icon %}
+<div class="compact-form">
+    <p class="modal-subtitle">
+        <strong>{{ line.product.nom if line.product else 'Produit' }}</strong>
+        —
+        {{ line.color.nom if line.color else 'Couleur' }}
+    </p>
+    <form hx-post="{{ form_action }}"
+          hx-target="#production-modal-body"
+          hx-swap="innerHTML">
+        <div class="form-group">
+            <label for="start-printer">Imprimante *</label>
+            <select id="start-printer" name="printer_id" required
+                    {% if block_busy %}onchange="var o=this.selectedOptions[0], busy=o.dataset.busy==='1', w=this.form.querySelector('.printer-busy-warning'); this.form.querySelector('[type=submit]').disabled=busy; w.hidden=!busy; w.textContent=busy ? o.dataset.busyLabel : '';"{% endif %}>
+                {% for opt in printer_options %}
+                <option value="{{ opt.printer.id }}"
+                        {% if opt.printer.id == selected_id %}selected{% endif %}
+                        data-busy="{{ '1' if opt.busy else '0' }}"
+                        data-busy-label="{{ opt.busy_label or '' }}">
+                    {{ opt.printer.nom }}{% if opt.printer.modele %} ({{ opt.printer.modele }}){% endif %}{% if opt.busy %} — en cours d'impression{% endif %}{% if opt.printer.id == line.printer_id %} · assignée{% endif %}
+                </option>
+                {% endfor %}
+            </select>
+            {% if block_busy %}
+            <p class="printer-busy-warning" role="alert" {% if not selected_busy %}hidden{% endif %}>{{ selected_busy_label or '' }}</p>
+            {% else %}
+            <p class="form-hint">Une imprimante occupée peut être assignée : l'impression sera lancée quand elle sera libre.</p>
+            {% endif %}
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary" {% if selected_busy %}disabled{% endif %}>{{ icon(submit_icon) }} {{ submit_label }}</button>
+            <button type="button" class="btn btn-ghost" onclick="closeProductionModal()">Annuler</button>
+        </div>
+    </form>
+</div>

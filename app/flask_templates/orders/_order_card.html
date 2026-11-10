@@ -1,0 +1,156 @@
+{% from 'macros/icons.html' import icon %}
+{% from 'macros/badges.html' import order_status, fab_status, delivery_mode, no_packaging %}
+{# Carte commande compacte avec détails au clic #}
+<div class="order-item" id="order-{{ order.id }}">
+    <div class="order-summary" 
+         onclick="toggleOrderDetails({{ order.id }})"
+         role="button"
+         tabindex="0"
+         onkeypress="if(event.key==='Enter') toggleOrderDetails({{ order.id }})">
+        {% set total_lines = order.order_lines|length %}
+        {% set ns = namespace(printed=0) %}
+        {% for line in order.order_lines %}
+            {% if line.statut_fabrication.value in ['imprime', 'livre_lea'] %}
+                {% set ns.printed = ns.printed + 1 %}
+            {% endif %}
+        {% endfor %}
+        {% set printed_lines = ns.printed %}
+        <div class="order-main-info">
+            <span class="order-date"><strong>{{ order.date_commande.strftime('%d/%m/%Y') if order.date_commande else '' }}</strong></span>
+            <span class="order-time">{{ order.date_commande.strftime('%H:%M') if order.date_commande else '' }}</span>
+            <span class="order-number">{{ order.numero_commande }}</span>
+            <span class="order-has-note" {% if order.observations %}title="{{ order.observations }}"{% endif %}>{% if order.observations %}{{ icon('file-text') }}{% endif %}</span>
+            <span class="order-client"><strong>{{ order.client.prenom }} {{ order.client.nom }}</strong></span>
+            {{ order_status(order.statut) }}
+            <span class="order-progress">{{ printed_lines }} sur {{ total_lines }} imprimés</span>
+            <span class="order-total">{{ "%.0f"|format(order.total_prix_vente) }} ₪</span>
+            <span class="order-delivery-date">
+                {% if order.date_livraison_prevue %}
+                {{ order.date_livraison_prevue.strftime('%d/%m/%Y') }}
+                {% endif %}
+            </span>
+            {% if order.ne_pas_emballer %}
+            {{ no_packaging() }}
+            {% else %}
+            <span></span>
+            {% endif %}
+        </div>
+        <div class="order-mobile-row" style="display:none">
+            <span class="order-mobile-client">{{ order.client.prenom }} {{ order.client.nom }}</span>
+            {% if order.observations %}<span class="order-mobile-note" title="{{ order.observations }}">{{ icon('file-text') }}</span>{% endif %}
+            <span class="order-mobile-total">{{ "%.0f"|format(order.total_prix_vente) }} ₪</span>
+        </div>
+        <div class="order-mobile-status-row" style="display:none">
+            {{ order_status(order.statut) }}
+            {% if order.ne_pas_emballer %}{{ no_packaging() }}{% endif %}
+            <span class="order-mobile-progress">{{ printed_lines }}/{{ total_lines }} imprimés</span>
+        </div>
+        <div class="order-mobile-meta" style="display:none">
+            {{ order.numero_commande }} · {{ order.date_commande.strftime('%d/%m %H:%M') if order.date_commande else '' }}
+            {% if order.date_livraison_prevue %}· <span class="order-mobile-due">{{ icon('calendar') }} {{ order.date_livraison_prevue.strftime('%d/%m') }}</span>{% endif %}
+        </div>
+        <span class="order-toggle-icon" id="icon-order-{{ order.id }}" aria-hidden="true">▶</span>
+    </div>
+    
+    <div class="order-details" id="details-order-{{ order.id }}" style="display: none;">
+        <div class="order-details-content">
+            <div class="order-info-grid">
+                {% if order.client.email %}
+                <div class="info-item">
+                    <strong>Email:</strong> {{ order.client.email }}
+                </div>
+                {% endif %}
+                {% if order.client.telephone %}
+                <div class="info-item">
+                    <strong>Téléphone:</strong> {{ order.client.telephone }}
+                </div>
+                {% endif %}
+                {% if order.date_livraison_prevue %}
+                <div class="info-item delivery-date-highlight">
+                    <strong>{{ icon('calendar') }} Livraison prévue:</strong> {{ order.date_livraison_prevue.strftime('%d/%m/%Y') }}
+                </div>
+                {% endif %}
+                <div class="info-item">
+                    {{ delivery_mode(order.mode_livraison) }}
+                </div>
+                <div class="info-item">
+                    <strong>Bénéfice:</strong> {{ "%.0f"|format(order.total_benefice) }} ₪
+                </div>
+            </div>
+            
+            {% if order.mode_livraison.value == 'livraison' and order.adresse_livraison and order.adresse_livraison != 'None' %}
+            <div class="delivery-address-section">
+                <strong>{{ icon('map-pin') }} Adresse de livraison:</strong><br>
+                {{ order.adresse_livraison|replace('\n', '<br>')|safe }}
+            </div>
+            {% endif %}
+            
+            {% if order.observations %}
+            <div class="order-observations-section">
+                <strong>{{ icon('file-text') }} Observations:</strong><br>
+                {{ order.observations }}
+            </div>
+            {% endif %}
+            
+            <div class="order-lines-section">
+                <h4>Lignes de commande ({{ order.order_lines|length }})</h4>
+                <div class="order-lines-list">
+                    {% for line in order.order_lines %}
+                    <div class="order-line-item">
+                        <span class="line-product-name" title="{{ line.product.nom }}">{{ line.product.nom }}</span>
+                        {% if line.color and line.color.code_hex %}
+                        <span class="color-badge" style="background-color: {{ line.color.code_hex }};"></span>
+                        {% endif %}
+                        <span class="line-color" title="{{ line.color.nom if line.color else '—' }}">{{ line.color.nom if line.color else '—' }}</span>
+                        {{ fab_status(line.statut_fabrication) }}
+                        <span class="line-price">{{ "%.0f"|format(line.prix_vente_total) }} ₪</span>
+                        <span class="line-personalization" {% if line.personnalisation %}title="{{ line.personnalisation }}"{% endif %}>
+                            {% if line.personnalisation %}{{ icon('edit') }} {{ line.personnalisation }}{% endif %}
+                        </span>
+                        <span class="line-observations" {% if line.observations %}title="{{ line.observations }}"{% endif %}>
+                            {% if line.observations %}{{ icon('message') }}{% endif %}
+                        </span>
+                        {% if line.statut_fabrication.value != 'imprime' and line.statut_fabrication.value != 'livre_lea' %}
+                        <button class="btn btn-ghost btn-sm" onclick="openOrderLineModal('edit', {{ order.id }}, {{ line.id }})">{{ icon('edit') }}</button>
+                        {% else %}
+                        <span class="line-readonly-message" title="Ligne imprimée - non modifiable">{{ icon('lock') }}</span>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <div class="order-actions">
+                {% if order.statut.value == 'en_attente' %}
+                <button class="btn btn-primary btn-sm" onclick="updateOrderStatus({{ order.id }}, 'paye')">{{ icon('check') }} Marquer Payé</button>
+                {% elif order.statut.value == 'imprime' %}
+                <button class="btn btn-primary btn-sm" onclick="updateOrderStatus({{ order.id }}, 'en_preparation')">{{ icon('package') }} Préparer</button>
+                {% elif order.statut.value == 'en_preparation' %}
+                <button class="btn btn-primary btn-sm" onclick="updateOrderStatus({{ order.id }}, 'pret_livraison')">{{ icon('truck') }} À livrer</button>
+                {% elif order.statut.value == 'pret_livraison' %}
+                <button class="btn btn-primary btn-sm" onclick="updateOrderStatus({{ order.id }}, 'livre')">{{ icon('check') }} Marquer livré</button>
+                {% endif %}
+                <button class="btn btn-secondary btn-sm" onclick="openOrderModal('edit', {{ order.id }})">{{ icon('edit') }} Modifier</button>
+                {% if order.statut.value not in ['livre', 'annule'] and session.get('username') in ['david', 'lea'] %}
+                {% set printed_qty = order.order_lines|selectattr('statut_fabrication.value', 'in', ['imprime', 'livre_lea'])|sum(attribute='quantite') %}
+                <button class="btn btn-danger btn-sm order-cancel-btn"
+                        onclick="cancelOrder({{ order.id }}, '{{ order.numero_commande }}', {{ printed_qty or 0 }})">{{ icon('x') }} Annuler la commande</button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal pour ajouter/modifier une ligne de commande -->
+<div id="order-line-modal" class="modal" style="display: none;">
+    <div class="modal-overlay" onclick="closeOrderLineModal()"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="order-line-modal-title">{{ icon('plus') }} Ajouter une ligne</h2>
+            <button class="modal-close" onclick="closeOrderLineModal()">×</button>
+        </div>
+        <div class="modal-body" id="order-line-modal-body">
+            <!-- Le contenu sera chargé via HTMX -->
+        </div>
+    </div>
+</div>

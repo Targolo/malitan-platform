@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block page_class %}page-order-view{% endblock %}
+{% from 'macros/icons.html' import icon %}
+{% from 'macros/badges.html' import order_status, fab_status, delivery_mode, no_packaging %}
+
+{% block title %}Commande {{ order.numero_commande }} - Malitan 3D{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>{{ icon('bag') }} Commande {{ order.numero_commande }}</h1>
+    </div>
+</div>
+
+<div class="order-details">
+    <div class="order-header">
+        <div class="order-info-section">
+            <h2>Informations de la commande</h2>
+            <div class="info-grid">
+                <div class="info-item">
+                    <strong>Numéro:</strong> {{ order.numero_commande }}
+                </div>
+                <div class="info-item">
+                    <strong>Statut:</strong> 
+                    {{ order_status(order.statut) }}
+                </div>
+                {% if order.date_livraison_prevue %}
+                <div class="info-item">
+                    <strong>Livraison prévue:</strong> {{ order.date_livraison_prevue.strftime('%d/%m/%Y') }}
+                </div>
+                {% endif %}
+                <div class="info-item">
+                    {{ delivery_mode(order.mode_livraison) }}
+                </div>
+                {% if order.ne_pas_emballer %}
+                <div class="info-item">
+                    {{ no_packaging() }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="order-client-section">
+            <h2>Client</h2>
+            <div class="client-info">
+                <strong>{{ order.client.full_name }}</strong><br>
+                {% if order.client.email %}
+                {{ icon('mail') }} {{ order.client.email }}<br>
+                {% endif %}
+                {% if order.client.telephone %}
+                {{ icon('phone') }} {{ order.client.telephone }}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    {% if order.adresse_livraison and order.adresse_livraison != 'None' %}
+    <div class="delivery-address">
+        <h3>{{ icon('map-pin') }} Adresse de livraison</h3>
+        <p>{{ order.adresse_livraison|replace('\n', '<br>')|safe }}</p>
+    </div>
+    {% endif %}
+    
+    {% if order.observations %}
+    <div class="order-observations">
+        <h3>{{ icon('file-text') }} Observations</h3>
+        <p>{{ order.observations }}</p>
+    </div>
+    {% endif %}
+    
+    <div class="order-lines-section">
+        <h2>Articles</h2>
+        <table class="order-lines-table">
+            <thead>
+                <tr>
+                    <th>Produit</th>
+                    <th>Couleur</th>
+                    <th>Prix unitaire</th>
+                    <th>Remise</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for line in order.order_lines %}
+                <tr>
+                    <td>{{ line.product.nom }}</td>
+                    <td>{{ line.color.nom }}</td>
+                    <td>{{ "%.0f"|format(line.prix_vente_unitaire) }} ₪</td>
+                    <td>{{ "%.0f"|format(line.remise_pourcent) }}%</td>
+                    <td><strong>{{ "%.0f"|format(line.prix_vente_final * line.quantite) }} ₪</strong></td>
+                </tr>
+                {% if line.personnalisation %}
+                <tr class="personalization-row">
+                    <td colspan="5" class="personalization">
+                        <em>Personnalisation:</em> {{ line.personnalisation }}
+                    </td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr class="total-row">
+                    <td colspan="4"><strong>Total</strong></td>
+                    <td><strong>{{ "%.0f"|format(order.total_prix_vente) }} ₪</strong></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+    
+    <div class="order-actions">
+        <button onclick="window.close()" class="btn btn-ghost">Fermer</button>
+        <button onclick="window.location.href='/clients'" class="btn btn-secondary">Retour aux clients</button>
+    </div>
+</div>
+{% endblock %}
+

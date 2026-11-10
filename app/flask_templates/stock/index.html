@@ -1,0 +1,360 @@
+{% extends "base.html" %}
+{% from 'macros/icons.html' import icon %}
+
+{% block title %}Stock Produits Finis - Malitan 3D{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>{{ icon('package') }} Stock produits finis</h1>
+        <p class="page-subtitle">Suivi ultra-compact des objets imprimés en avance</p>
+    </div>
+</div>
+
+<div id="stock-summary">
+    {% include 'stock/_summary_cards.html' %}
+</div>
+
+{% if alerts and alerts.total > 0 %}
+<div class="alerts-panel">
+    {% for alert in alerts.critical %}
+    <div class="alert-chip critical">
+        <div class="alert-icon">{{ icon('dot-coral') }}</div>
+        <div>
+            <p class="alert-title">Urgent</p>
+            <p class="alert-message">{{ alert.message }}</p>
+        </div>
+    </div>
+    {% endfor %}
+    {% for alert in alerts.warning %}
+    <div class="alert-chip warning">
+        <div class="alert-icon">{{ icon('dot-peach') }}</div>
+        <div>
+            <p class="alert-title">Attention</p>
+            <p class="alert-message">{{ alert.message }}</p>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<div class="tabs-card" id="stock-tabs">
+    <div class="tab-buttons">
+        <button class="tab-button active" data-tab-target="stock-list-panel">{{ icon('clipboard') }} Stock actuel</button>
+        <button class="tab-button" data-tab-target="stock-history-panel">{{ icon('trending-up') }} Historique</button>
+    </div>
+    
+    <section id="stock-list-panel" class="tab-panel active">
+        <form id="stock-filters" class="filters-row" onsubmit="return false;">
+            <div class="filter-field">
+                <label for="stock-filter-product">Objet</label>
+                <select id="stock-filter-product"
+                        name="product_id"
+                        hx-get="{{ url_for('stock_list_partial') }}"
+                        hx-target="#stock-list"
+                        hx-trigger="change"
+                        hx-swap="innerHTML"
+                        hx-include="#stock-filters">
+                    <option value="all" {% if stock_filters.product == 'all' %}selected{% endif %}>Tous</option>
+                    {% for product in products %}
+                    <option value="{{ product.id }}" {% if stock_filters.product == product.id|string %}selected{% endif %}>
+                        {{ product.nom }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-field">
+                <label for="stock-filter-color">Couleur</label>
+                <select id="stock-filter-color"
+                        name="color_id"
+                        hx-get="{{ url_for('stock_list_partial') }}"
+                        hx-target="#stock-list"
+                        hx-trigger="change"
+                        hx-swap="innerHTML"
+                        hx-include="#stock-filters">
+                    <option value="all" {% if stock_filters.color == 'all' %}selected{% endif %}>Toutes</option>
+                    {% for color in colors %}
+                    <option value="{{ color.id }}" {% if stock_filters.color == color.id|string %}selected{% endif %}>
+                        {{ color.nom }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <label class="filter-checkbox">
+                <input type="checkbox"
+                       id="stock-filter-show-all"
+                       name="show_all"
+                       value="true"
+                       {% if stock_filters.show_all %}checked{% endif %}
+                       hx-get="{{ url_for('stock_list_partial') }}"
+                       hx-target="#stock-list"
+                       hx-trigger="change"
+                       hx-swap="innerHTML"
+                       hx-include="#stock-filters">
+                <span>Montrer les stocks vides</span>
+            </label>
+            <div class="filters-actions">
+                <button type="button" class="btn btn-primary" onclick="openStockAddModal()">{{ icon('plus') }} Ajouter du stock</button>
+            </div>
+        </form>
+        
+        <div id="stock-list">
+            {% include 'stock/_stock_list.html' %}
+        </div>
+    </section>
+    
+    <section id="stock-history-panel" class="tab-panel">
+        <form id="stock-history-filters" class="filters-row" onsubmit="return false;">
+            <div class="filter-field">
+                <label for="history-product">Objet</label>
+                <select id="history-product"
+                        name="history_product_id"
+                        hx-get="{{ url_for('stock_history_partial') }}"
+                        hx-target="#stock-history-list"
+                        hx-trigger="change"
+                        hx-swap="innerHTML"
+                        hx-include="#stock-history-filters">
+                    <option value="all" {% if history_filters.product == 'all' %}selected{% endif %}>Tous</option>
+                    {% for product in products %}
+                    <option value="{{ product.id }}" {% if history_filters.product == product.id|string %}selected{% endif %}>
+                        {{ product.nom }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-field">
+                <label for="history-color">Couleur</label>
+                <select id="history-color"
+                        name="history_color_id"
+                        hx-get="{{ url_for('stock_history_partial') }}"
+                        hx-target="#stock-history-list"
+                        hx-trigger="change"
+                        hx-swap="innerHTML"
+                        hx-include="#stock-history-filters">
+                    <option value="all" {% if history_filters.color == 'all' %}selected{% endif %}>Toutes</option>
+                    {% for color in colors %}
+                    <option value="{{ color.id }}" {% if history_filters.color == color.id|string %}selected{% endif %}>
+                        {{ color.nom }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </form>
+        <div id="stock-history-list">
+            {% include 'stock/_history_list.html' %}
+        </div>
+    </section>
+</div>
+
+<div id="stock-add-modal" class="modal modal-large" style="display: none;">
+    <div class="modal-overlay" onclick="closeStockAddModal()"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>{{ icon('plus') }} Ajouter du stock</h2>
+            <button class="modal-close" onclick="closeStockAddModal()">×</button>
+        </div>
+        <div class="modal-body">
+            <div class="two-columns">
+                <div class="card">
+                    <h3>{{ icon('download') }} Ajouter des objets au stock</h3>
+                    {% if not products_with_stock %}
+                    <p class="empty-state">Aucun produit n'a la gestion de stock activée.</p>
+                    {% else %}
+                    <form id="stock-add-form"
+                          class="compact-form"
+                          hx-post="{{ url_for('stock_add_entry') }}"
+                          hx-target="#stock-add-result"
+                          hx-swap="innerHTML">
+                        <div class="form-row-compact">
+                            <div class="form-group">
+                                <label for="add-product">Produit *</label>
+                                <select id="add-product"
+                                        name="product_id"
+                                        hx-get="{{ url_for('stock_add_metrics') }}"
+                                        hx-trigger="change"
+                                        hx-target="#stock-add-metrics"
+                                        hx-include="#stock-add-form">
+                                    {% for product in products_with_stock %}
+                                    <option value="{{ product.id }}"
+                                        {% if add_defaults.product_id == product.id %}selected{% endif %}>
+                                        {{ product.nom }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        <div class="form-group">
+                            <label for="add-color">Couleur *</label>
+                            <div class="color-input-wrapper">
+                                <span class="color-pill" id="add-color-pill"></span>
+                                <select id="add-color"
+                                        name="color_id"
+                                        hx-get="{{ url_for('stock_add_metrics') }}"
+                                        hx-trigger="change"
+                                        hx-target="#stock-add-metrics"
+                                        hx-include="#stock-add-form">
+                                    {% for color in colors %}
+                                    {% set option_hex = color.code_hex or '#adb5bd' %}
+                                    <option value="{{ color.id }}"
+                                            data-hex="{{ option_hex }}"
+                                            {% if add_defaults.color_id == color.id %}selected{% endif %}>
+                                        {{ color.nom }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        </div>
+                        <div class="form-row-compact">
+                            <div class="form-group">
+                                <label for="add-quantity">Quantité *</label>
+                                <input id="add-quantity"
+                                       type="number"
+                                       min="1"
+                                       name="quantity"
+                                       value="{{ add_defaults.quantity }}"
+                                       hx-get="{{ url_for('stock_add_metrics') }}"
+                                       hx-trigger="change, keyup changed delay:300ms"
+                                       hx-target="#stock-add-metrics"
+                                       hx-include="#stock-add-form">
+                            </div>
+                            <div class="form-group">
+                                <label for="add-observations">Observations</label>
+                                <input id="add-observations"
+                                       type="text"
+                                       name="observations"
+                                       placeholder="Notes (optionnel)">
+                            </div>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">{{ icon('check') }} Ajouter</button>
+                        </div>
+                        <div id="stock-add-result"></div>
+                    </form>
+                    {% endif %}
+                </div>
+                <div class="card metrics-card">
+                    <h3>{{ icon('bar-chart') }} Impact immédiat</h3>
+                    <div id="stock-add-metrics">
+                        {% include 'stock/_add_metrics.html' %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="stock-adjust-modal" class="modal" style="display: none;">
+    <div class="modal-overlay" onclick="closeStockAdjustModal()"></div>
+    <div class="modal-content modal-small">
+        <div class="modal-header">
+            <h2>{{ icon('edit') }} Ajuster le stock</h2>
+            <button class="modal-close" onclick="closeStockAdjustModal()">×</button>
+        </div>
+        <div class="modal-body" id="stock-adjust-modal-body">
+            <!-- Contenu chargé via HTMX -->
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const tabButtons = document.querySelectorAll('#stock-tabs .tab-button');
+    const panels = document.querySelectorAll('#stock-tabs .tab-panel');
+    
+    tabButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            const targetId = button.getAttribute('data-tab-target');
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            panels.forEach(panel => panel.classList.remove('active'));
+            button.classList.add('active');
+            const panel = document.getElementById(targetId);
+            if (panel) {
+                panel.classList.add('active');
+            }
+        });
+    });
+})();
+
+document.addEventListener('DOMContentLoaded', function() {
+    initStockAddColorPill();
+});
+
+function switchStockTab(panelId) {
+    const button = document.querySelector(`#stock-tabs .tab-button[data-tab-target="${panelId}"]`);
+    if (button) {
+        button.click();
+    }
+}
+
+function openStockAddModal() {
+    const modal = document.getElementById('stock-add-modal');
+    if (!modal) return;
+    modal.style.display = 'flex';
+    updateAddColorPill();
+    setTimeout(() => {
+        const firstField = modal.querySelector('#add-product');
+        if (firstField) {
+            firstField.focus();
+        }
+    }, 50);
+}
+
+function closeStockAddModal() {
+    const modal = document.getElementById('stock-add-modal');
+    if (!modal) return;
+    modal.style.display = 'none';
+}
+
+function updateAddColorPill() {
+    const select = document.getElementById('add-color');
+    const pill = document.getElementById('add-color-pill');
+    if (!select || !pill) return;
+    const option = select.options[select.selectedIndex];
+    const hex = option && option.dataset && option.dataset.hex ? option.dataset.hex : '#adb5bd';
+    pill.style.backgroundColor = hex;
+}
+
+function initStockAddColorPill() {
+    const select = document.getElementById('add-color');
+    if (!select) return;
+    select.addEventListener('change', updateAddColorPill);
+    updateAddColorPill();
+}
+
+function openStockAdjustModal(stockId) {
+    const modal = document.getElementById('stock-adjust-modal');
+    const body = document.getElementById('stock-adjust-modal-body');
+    if (!modal || !body) return;
+    body.innerHTML = '<p>Chargement...</p>';
+    modal.style.display = 'flex';
+    htmx.ajax('GET', `/stock-produits-finis/stock/${stockId}/adjust-form`, {
+        target: '#stock-adjust-modal-body',
+        swap: 'innerHTML'
+    });
+}
+
+function closeStockAdjustModal() {
+    const modal = document.getElementById('stock-adjust-modal');
+    if (!modal) return;
+    modal.style.display = 'none';
+    const body = document.getElementById('stock-adjust-modal-body');
+    if (body) {
+        body.innerHTML = '';
+    }
+}
+
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        closeStockAdjustModal();
+        closeStockAddModal();
+    }
+});
+
+window.switchStockTab = switchStockTab;
+window.openStockAddModal = openStockAddModal;
+window.closeStockAddModal = closeStockAddModal;
+window.openStockAdjustModal = openStockAdjustModal;
+window.closeStockAdjustModal = closeStockAdjustModal;
+</script>
+{% endblock %}
+

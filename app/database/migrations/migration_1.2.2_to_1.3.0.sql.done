@@ -1,0 +1,30 @@
+-- Migration 1.2.2 -> 1.3.0
+-- Objectif : introduire l'étape d'emballage entre production et livraison
+-- - Ajout du statut de commande 'pret_livraison'
+-- - Ajout du champ ne_pas_emballer pour les commandes particulières
+-- - Ajout du timestamp date_pret_livraison pour tracer le moment où la commande est prête
+
+BEGIN;
+
+-- 1) Ajouter la valeur au type order_status
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_enum
+        WHERE enumtypid = 'order_status'::regtype
+          AND enumlabel = 'pret_livraison'
+    ) THEN
+        ALTER TYPE order_status ADD VALUE 'pret_livraison';
+    END IF;
+END $$;
+
+-- 2) Ajouter les nouvelles colonnes sur orders
+ALTER TABLE orders
+    ADD COLUMN IF NOT EXISTS ne_pas_emballer BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS date_pret_livraison TIMESTAMP NULL;
+
+-- 3) Mettre la colonne NOT NULL (si base contenait déjà des NULL malgré le DEFAULT)
+UPDATE orders SET ne_pas_emballer = FALSE WHERE ne_pas_emballer IS NULL;
+
+COMMIT;
+

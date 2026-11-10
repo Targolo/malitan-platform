@@ -1,0 +1,130 @@
+{% from 'macros/icons.html' import icon %}
+{# Étape 1 d'une nouvelle commande : le formulaire de commande ne s'ouvre qu'avec un client existant.
+   Les actions appellent openOrderFormForClient / openNewClientForm (orders/list.html). #}
+<div class="client-picker" id="client-picker">
+    <div class="inline-field">
+        <label for="client_search">Client *</label>
+        <div class="client-search-wrapper">
+            <input type="text"
+                   id="client_search"
+                   class="client-search-input"
+                   placeholder="Tapez pour rechercher un client..."
+                   autocomplete="off"
+                   data-lastpass-ignore="true"
+                   data-form-type="other"
+                   aria-label="Rechercher un client"
+                   autofocus>
+            <select id="client_id" class="client-select-filtered" aria-hidden="true" tabindex="-1">
+                <option value=""></option>
+                {% for client in clients %}
+                <option value="{{ client.id }}"
+                        data-full-name="{{ client.full_name }}"
+                        data-email="{{ client.email|default('', true) }}">{{ client.full_name }}{% if client.email %} ({{ client.email }}){% endif %}</option>
+                {% endfor %}
+            </select>
+            <div id="client_search_results" class="client-search-results" style="display: none;"></div>
+        </div>
+    </div>
+
+    <div class="form-actions">
+        <button type="button" id="picker-continue" class="btn btn-primary" disabled
+                onclick="openOrderFormForClient(document.getElementById('client_id').value)">Continuer</button>
+        <button type="button" id="picker-new-client" class="btn btn-secondary"
+                onclick="openNewClientForm()">{{ icon('plus') }} Nouveau client</button>
+        <button type="button" class="btn btn-ghost" onclick="closeOrderModal()">{{ icon('x') }} Annuler</button>
+    </div>
+</div>
+
+<script>
+(function initializeClientPicker() {
+    const picker = document.getElementById('client-picker');
+    const searchInput = document.getElementById('client_search');
+    const clientSelect = document.getElementById('client_id');
+    const results = document.getElementById('client_search_results');
+    const continueButton = document.getElementById('picker-continue');
+
+    const clients = Array.from(clientSelect.options).slice(1).map(opt => ({
+        value: opt.value,
+        text: opt.textContent,
+        search: (opt.textContent + ' ' + opt.dataset.fullName + ' ' + opt.dataset.email).toLowerCase()
+    }));
+    let highlighted = -1;
+
+    // Seul un clic dans la liste identifie le client : taper un nom ne suffit pas.
+    function setSelection(clientId) {
+        clientSelect.value = clientId;
+        continueButton.disabled = !clientId;
+    }
+
+    function highlight(index) {
+        highlighted = index;
+        results.querySelectorAll('.client-result-item:not(.no-results)').forEach((item, i) => {
+            item.classList.toggle('selected', i === index);
+        });
+    }
+
+    function showResults(term) {
+        const query = term.toLowerCase().trim();
+        const matches = query ? clients.filter(c => c.search.includes(query)) : clients;
+        results.innerHTML = '';
+        if (matches.length === 0) {
+            if (query) {
+                const empty = document.createElement('div');
+                empty.className = 'client-result-item no-results';
+                empty.textContent = 'Aucun client trouvé : utilisez « Nouveau client »';
+                results.appendChild(empty);
+            }
+            results.style.display = query ? 'block' : 'none';
+            return;
+        }
+        matches.forEach((c, index) => {
+            const item = document.createElement('div');
+            item.className = 'client-result-item';
+            item.textContent = c.text;
+            item.addEventListener('click', () => {
+                searchInput.value = c.text;
+                results.style.display = 'none';
+                setSelection(c.value);
+            });
+            item.addEventListener('mouseenter', () => highlight(index));
+            results.appendChild(item);
+        });
+        results.style.display = 'block';
+        highlight(-1);
+    }
+
+    searchInput.addEventListener('input', () => {
+        setSelection('');
+        showResults(searchInput.value);
+    });
+    searchInput.addEventListener('focus', () => showResults(searchInput.value));
+
+    // Fermer la liste quand on clique ailleurs dans la fenêtre
+    picker.addEventListener('click', (e) => {
+        if (!searchInput.contains(e.target) && !results.contains(e.target)) {
+            results.style.display = 'none';
+        }
+    });
+
+    searchInput.addEventListener('keydown', (e) => {
+        const items = results.querySelectorAll('.client-result-item:not(.no-results)');
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            highlight(Math.min(highlighted + 1, items.length - 1));
+            if (items[highlighted]) items[highlighted].scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            highlight(Math.max(highlighted - 1, -1));
+            if (items[highlighted]) items[highlighted].scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (highlighted >= 0 && items[highlighted]) {
+                items[highlighted].click();
+            } else if (!continueButton.disabled) {
+                continueButton.click();
+            }
+        }
+    });
+
+})();
+</script>

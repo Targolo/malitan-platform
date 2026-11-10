@@ -1,0 +1,744 @@
+{% extends "base.html" %}
+{% block page_class %}page-orders{% endblock %}
+{% from 'macros/icons.html' import icon %}
+
+{% block title %}Commandes - Malitan 3D{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>{{ icon('bag') }} Commandes</h1>
+    </div>
+</div>
+
+{% if alerts and alerts.total > 0 %}
+<div class="alerts-panel">
+    {% for alert in alerts.critical %}
+    <div class="alert-chip critical">
+        <div class="alert-icon">{{ icon('dot-coral') }}</div>
+        <div>
+            <p class="alert-title">Urgent</p>
+            <p class="alert-message">{{ alert.message }}</p>
+        </div>
+    </div>
+    {% endfor %}
+    {% for alert in alerts.warning %}
+    <div class="alert-chip warning">
+        <div class="alert-icon">{{ icon('dot-peach') }}</div>
+        <div>
+            <p class="alert-title">Attention</p>
+            <p class="alert-message">{{ alert.message }}</p>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Filtres avec HTMX -->
+<div class="filters-bar" data-mobile-collapse="Filtres">
+    <div class="filter-group">
+        <label for="status-filter">Statut:</label>
+        <select id="status-filter" 
+                name="status"
+                hx-get="{{ url_for('orders_list') }}"
+                hx-trigger="change"
+                hx-target="#orders-list"
+                hx-swap="innerHTML"
+                hx-include="#client-filter, #search-personalization"
+                class="filter-select"
+                autocomplete="new-password">
+            <option value="En cours" {% if status_filter == 'En cours' %}selected{% endif %}>En cours</option>
+            <option value="Tous" {% if status_filter == 'Tous' %}selected{% endif %}>Tous</option>
+            <option value="en_attente" {% if status_filter == 'en_attente' %}selected{% endif %}>En attente de paiement</option>
+            <option value="paye" {% if status_filter == 'paye' %}selected{% endif %}>Payé</option>
+            <option value="en_preparation" {% if status_filter == 'en_preparation' %}selected{% endif %}>À l'emballage</option>
+            <option value="pret_livraison" {% if status_filter == 'pret_livraison' %}selected{% endif %}>Prêt à livrer</option>
+            <option value="livre" {% if status_filter == 'livre' %}selected{% endif %}>Livré</option>
+            <option value="annule" {% if status_filter == 'annule' %}selected{% endif %}>Annulé</option>
+        </select>
+    </div>
+    
+    <div class="filter-group">
+        <label for="client-filter">Client:</label>
+        <div class="client-filter-wrapper">
+            <input type="text" 
+                   id="client-filter-search" 
+                   class="client-filter-search-input" 
+                   placeholder="Tapez pour rechercher un client..."
+                   autocomplete="off" 
+                   data-lastpass-ignore="true" 
+                   data-form-type="other"
+                   aria-label="Rechercher un client">
+            <select id="client-filter"
+                    name="client"
+                    hx-get="{{ url_for('orders_list') }}"
+                    hx-trigger="change"
+                    hx-target="#orders-list"
+                    hx-swap="innerHTML"
+                    hx-include="#status-filter, #search-personalization"
+                    class="filter-select client-filter-select"
+                    autocomplete="new-password"
+                    style="display: none;">
+                <option value="Tous" {% if client_filter == 'Tous' %}selected{% endif %}>Tous</option>
+                {% for client in clients %}
+                <option value="{{ client.id }}" 
+                        {% if client_filter == client.id|string %}selected{% endif %}
+                        data-full-name="{{ client.full_name }}"
+                        data-nom="{{ client.nom }}"
+                        data-prenom="{{ client.prenom|default('') }}"
+                        data-email="{{ client.email|default('') }}">{{ client.full_name }}</option>
+                {% endfor %}
+            </select>
+            <div id="client-filter-results" class="client-filter-results" style="display: none;"></div>
+        </div>
+    </div>
+    
+    <div class="filter-group">
+        <label for="search-personalization">Personnalisation:</label>
+        <input type="text" 
+               id="search-personalization"
+               name="personalization"
+               hx-get="{{ url_for('orders_list') }}"
+               hx-trigger="keyup changed delay:500ms"
+               hx-target="#orders-list"
+               hx-swap="innerHTML"
+               hx-include="#status-filter, #client-filter"
+               class="filter-select"
+               placeholder="Rechercher..."
+               value="{{ personalization_filter|default('') }}"
+               autocomplete="off">
+    </div>
+    
+    <button onclick="location.reload()" class="btn btn-secondary">{{ icon('refresh') }} Actualiser</button>
+</div>
+
+<div class="orders-header">
+    {% include 'orders/_orders_count.html' %}
+    <button onclick="openOrderModal('new')" class="btn btn-primary">{{ icon('plus') }} Nouvelle Commande</button>
+</div>
+
+<div id="orders-list" class="orders-compact-list">
+    {% for order in orders %}
+        {% include 'orders/_order_card.html' %}
+    {% endfor %}
+</div>
+
+<!-- Modal pour créer/modifier une commande -->
+<div id="order-modal" class="modal" style="display: none;">
+    <div class="modal-overlay" onclick="closeOrderModal()"></div>
+    <div class="modal-content modal-large">
+        <div class="modal-header">
+            <h2 id="modal-title">{{ icon('plus') }} Nouvelle Commande</h2>
+            <button class="modal-close" onclick="closeOrderModal()">×</button>
+        </div>
+        <div class="modal-body" id="modal-body">
+            <!-- Le contenu sera chargé via HTMX -->
+        </div>
+    </div>
+</div>
+
+<script>
+function openOrderModal(mode, orderId = null) {
+    const modal = document.getElementById('order-modal');
+    const modalTitle = document.getElementById('modal-title');
+    const modalBody = document.getElementById('modal-body');
+    
+    if (mode === 'new') {
+        // Étape 1 : identifier le client avant de pouvoir saisir la commande
+        modalTitle.textContent = 'Nouvelle Commande : choix du client';
+        htmx.ajax('GET', '{{ url_for("order_client_picker") }}', {
+            target: modalBody,
+            swap: 'innerHTML'
+        }).then(() => {
+            modal.style.display = 'flex';
+        });
+    } else if (mode === 'edit' && orderId) {
+        modalTitle.textContent = 'Modifier la Commande';
+        htmx.ajax('GET', `/orders/${orderId}/form`, {
+            target: modalBody,
+            swap: 'innerHTML',
+            headers: {'HX-Request': 'true'}
+        }).then(() => {
+            modal.style.display = 'flex';
+        });
+    }
+}
+
+function closeOrderModal() {
+    const modal = document.getElementById('order-modal');
+    modal.style.display = 'none';
+    document.getElementById('modal-body').innerHTML = '';
+}
+
+// Étape 2 : formulaire de commande pour le client identifié
+function openOrderFormForClient(clientId) {
+    document.getElementById('modal-title').textContent = 'Nouvelle Commande';
+    htmx.ajax('GET', '{{ url_for("order_form_new") }}?client_id=' + encodeURIComponent(clientId), {
+        target: '#modal-body',
+        swap: 'innerHTML'
+    });
+}
+
+// Création d'un client depuis l'étape 1, avec le formulaire client existant
+function openNewClientForm() {
+    document.getElementById('modal-title').textContent = 'Nouveau Client';
+    htmx.ajax('GET', '{{ url_for("client_form_new") }}', {
+        target: '#modal-body',
+        swap: 'innerHTML'
+    });
+}
+
+// « Annuler » du formulaire client appelle closeClientModal : ici, retour au choix du client
+function closeClientModal() {
+    openOrderModal('new');
+}
+
+// client_create renvoie l'id du nouveau client (en-tête HX-Trigger) : on enchaîne sur la commande
+document.body.addEventListener('clientCreated', function(event) {
+    openOrderFormForClient(event.detail.id);
+});
+
+// Fonction pour ouvrir le modal d'ajout/modification de ligne
+function openOrderLineModal(mode, orderId, lineId = null) {
+    console.log('openOrderLineModal appelé avec:', {mode, orderId, lineId});
+    
+    const modal = document.getElementById('order-line-modal');
+    const modalTitle = document.getElementById('order-line-modal-title');
+    const modalBody = document.getElementById('order-line-modal-body');
+    
+    if (!modal || !modalTitle || !modalBody) {
+        console.error('Modal non trouvé:', {modal, modalTitle, modalBody});
+            alert('Erreur : le modal n\'est pas disponible');
+        return;
+    }
+    
+    if (mode === 'new' && orderId) {
+        modalTitle.textContent = 'Ajouter une ligne';
+        modalBody.innerHTML = '<p>Chargement...</p>';
+        modal.style.display = 'flex';
+        modal.style.zIndex = '10000';
+        
+        htmx.ajax('GET', `/orders/${orderId}/lines/form/new`, {
+            target: modalBody,
+            swap: 'innerHTML',
+            headers: {'HX-Request': 'true'}
+        }).then(() => {
+            modal.style.display = 'flex';
+            modal.style.zIndex = '10000';
+        }).catch(function(error) {
+            console.error('Erreur lors du chargement du formulaire:', error);
+            modalBody.innerHTML = '<p style="color: red;">Erreur lors du chargement du formulaire</p>';
+        });
+    } else if (mode === 'temp') {
+        // Mode temporaire pour création de commande
+        modalTitle.textContent = 'Ajouter une ligne';
+        modalBody.innerHTML = '<p>Chargement...</p>';
+        modal.style.display = 'flex';
+        modal.style.zIndex = '10000';
+        
+        htmx.ajax('GET', '{{ url_for("temp_order_line_form") }}', {
+            target: modalBody,
+            swap: 'innerHTML',
+            headers: {'HX-Request': 'true'}
+        }).then(() => {
+            modal.style.display = 'flex';
+            modal.style.zIndex = '10000';
+        }).catch(function(error) {
+            console.error('Erreur lors du chargement du formulaire:', error);
+            modalBody.innerHTML = '<p style="color: red;">Erreur lors du chargement du formulaire</p>';
+        });
+    } else if (mode === 'edit' && lineId) {
+        modalTitle.textContent = 'Modifier la ligne';
+        modalBody.innerHTML = '<p>Chargement...</p>';
+        modal.style.display = 'flex';
+        modal.style.zIndex = '10000';
+        
+        htmx.ajax('GET', `/orders/${orderId}/lines/${lineId}/form`, {
+            target: modalBody,
+            swap: 'innerHTML',
+            headers: {'HX-Request': 'true'}
+        }).then(() => {
+            modal.style.display = 'flex';
+            modal.style.zIndex = '10000';
+        }).catch(function(error) {
+            console.error('Erreur lors du chargement du formulaire:', error);
+            modalBody.innerHTML = '<p style="color: red;">Erreur lors du chargement du formulaire</p>';
+        });
+    }
+}
+
+function closeOrderLineModal() {
+    const modal = document.getElementById('order-line-modal');
+    modal.style.display = 'none';
+    document.getElementById('order-line-modal-body').innerHTML = '';
+}
+
+// Exposer les fonctions globalement
+window.openOrderModal = openOrderModal;
+window.closeOrderModal = closeOrderModal;
+window.openOrderFormForClient = openOrderFormForClient;
+window.openNewClientForm = openNewClientForm;
+window.closeClientModal = closeClientModal;
+window.openOrderLineModal = openOrderLineModal;
+window.closeOrderLineModal = closeOrderLineModal;
+
+// Écouter les événements HTMX pour fermer le modal après création/modification
+document.body.addEventListener('htmx:afterRequest', function(event) {
+    // Si c'est une création/modification de commande réussie
+    if ((event.detail.pathInfo.requestPath.includes('/orders/new') || 
+         event.detail.pathInfo.requestPath.includes('/orders/') && event.detail.pathInfo.requestPath.includes('/update')) && 
+        event.detail.successful) {
+        setTimeout(function() {
+            if (typeof window.closeOrderModal === 'function') {
+                window.closeOrderModal();
+            }
+            window.location.reload();
+        }, 200);
+    }
+    
+    // Si c'est une création/modification de ligne réussie
+    if ((event.detail.pathInfo.requestPath.includes('/lines/add') || 
+         event.detail.pathInfo.requestPath.includes('/lines/') && event.detail.pathInfo.requestPath.includes('/update')) && 
+        event.detail.successful) {
+        setTimeout(function() {
+            if (typeof window.closeOrderLineModal === 'function') {
+                window.closeOrderLineModal();
+            }
+            window.location.reload();
+        }, 200);
+    }
+});
+
+// Fermer avec Escape
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const orderModal = document.getElementById('order-modal');
+        const lineModal = document.getElementById('order-line-modal');
+        if (document.getElementById('nom-new')) {
+            // Étape « Nouveau client » : comme « Annuler », retour au choix du client
+            closeClientModal();
+        } else if (orderModal && orderModal.style.display !== 'none') {
+            closeOrderModal();
+        } else if (lineModal && lineModal.style.display !== 'none') {
+            closeOrderLineModal();
+        }
+    }
+});
+
+// Initialiser le filtre de recherche des clients
+function initializeClientFilterSearch() {
+    const clientSearchInput = document.getElementById('client-filter-search');
+    const clientSelect = document.getElementById('client-filter');
+    const clientResults = document.getElementById('client-filter-results');
+    
+    if (!clientSearchInput || !clientSelect || !clientResults) {
+        return;
+    }
+    
+    // Stocker toutes les options originales
+    const allOptionsData = Array.from(clientSelect.querySelectorAll('option')).map(opt => ({
+        element: opt.cloneNode(true),
+        nom: opt.getAttribute('data-nom') || '',
+        prenom: opt.getAttribute('data-prenom') || '',
+        fullName: opt.getAttribute('data-full-name') || opt.textContent,
+        email: opt.getAttribute('data-email') || '',
+        value: opt.value,
+        text: opt.textContent
+    }));
+    
+    // Initialiser l'affichage avec le client sélectionné
+    const selectedOption = clientSelect.querySelector('option[selected]');
+    if (selectedOption && selectedOption.value !== 'Tous') {
+        const fullName = selectedOption.getAttribute('data-full-name') || selectedOption.textContent;
+        // Enlever l'email du texte si présent
+        const displayName = fullName.replace(/\s*\([^)]*\)\s*$/, ''); // Enlever (email) si présent
+        clientSearchInput.value = displayName;
+    } else {
+        // Si "Tous" est sélectionné ou rien n'est sélectionné, laisser vide pour permettre la recherche
+        clientSearchInput.value = '';
+    }
+    
+    let selectedIndex = -1;
+    
+    function filterAndDisplayResults(searchTerm) {
+        const searchLower = searchTerm.toLowerCase().trim();
+        
+        // Filtrer les options (inclure "Tous" si recherche vide ou correspond)
+        const filteredOptions = searchLower ? 
+            allOptionsData.filter(opt => {
+                if (opt.value === 'Tous') {
+                    return searchLower === 'tous' || searchLower === '';
+                }
+                const nom = opt.nom.toLowerCase();
+                const prenom = opt.prenom.toLowerCase();
+                const fullName = opt.fullName.toLowerCase();
+                const email = opt.email.toLowerCase();
+                const text = opt.text.toLowerCase();
+                
+                return nom.includes(searchLower) || 
+                       prenom.includes(searchLower) || 
+                       fullName.includes(searchLower) ||
+                       email.includes(searchLower) ||
+                       text.includes(searchLower);
+            }) : 
+            allOptionsData;
+        
+        // Afficher les résultats
+        clientResults.innerHTML = '';
+        
+        if (filteredOptions.length === 0 && searchLower) {
+            const div = document.createElement('div');
+            div.className = 'client-filter-result-item no-results';
+            div.textContent = 'Aucun client trouvé';
+            clientResults.appendChild(div);
+            clientResults.style.display = 'block';
+            return;
+        }
+        
+        if (filteredOptions.length === 0 && !searchLower) {
+            clientResults.style.display = 'none';
+            return;
+        }
+        
+        filteredOptions.forEach((opt, index) => {
+            const div = document.createElement('div');
+            div.className = 'client-filter-result-item';
+            div.setAttribute('data-value', opt.value);
+            
+            // Afficher sans email - juste le nom
+            const displayText = opt.fullName || opt.text;
+            // Enlever l'email du texte si présent dans opt.text
+            const cleanText = displayText.replace(/\s*\([^)]*\)\s*$/, ''); // Enlever (email) si présent
+            div.textContent = cleanText;
+            
+            div.addEventListener('click', function() {
+                selectClientFilter(opt.value, displayText);
+            });
+            
+            div.addEventListener('mouseenter', function() {
+                selectedIndex = index;
+                updateSelectedItem();
+            });
+            
+            clientResults.appendChild(div);
+        });
+        
+        clientResults.style.display = 'block';
+        selectedIndex = -1;
+        updateSelectedItem();
+    }
+    
+    function updateSelectedItem() {
+        const items = clientResults.querySelectorAll('.client-filter-result-item:not(.no-results)');
+        items.forEach((item, index) => {
+            item.classList.toggle('selected', index === selectedIndex);
+        });
+    }
+    
+    function selectClientFilter(clientValue, clientText) {
+        clientSelect.value = clientValue;
+        
+        // Afficher le nom sans email
+        const selectedOpt = allOptionsData.find(opt => opt.value === clientValue);
+        if (selectedOpt) {
+            const displayName = selectedOpt.fullName || selectedOpt.text;
+            // Enlever l'email du texte si présent
+            const cleanName = displayName.replace(/\s*\([^)]*\)\s*$/, ''); // Enlever (email) si présent
+            clientSearchInput.value = cleanName;
+        } else {
+            // Enlever l'email du texte si présent
+            const cleanText = clientText.replace(/\s*\([^)]*\)\s*$/, ''); // Enlever (email) si présent
+            clientSearchInput.value = cleanText;
+        }
+        
+        clientResults.style.display = 'none';
+        
+        // Déclencher le changement HTMX pour filtrer les commandes
+        htmx.trigger(clientSelect, 'change');
+    }
+    
+    // Gérer la saisie dans le champ de recherche
+    clientSearchInput.addEventListener('input', function(e) {
+        const searchTerm = e.target.value;
+        filterAndDisplayResults(searchTerm);
+    });
+    
+    // Gérer le focus
+    clientSearchInput.addEventListener('focus', function() {
+        const searchTerm = clientSearchInput.value.trim();
+        if (searchTerm || allOptionsData.length > 0) {
+            filterAndDisplayResults(searchTerm);
+        }
+    });
+    
+    // Fermer les résultats quand on clique ailleurs
+    document.addEventListener('click', function(e) {
+        if (!clientSearchInput.contains(e.target) && !clientResults.contains(e.target)) {
+            clientResults.style.display = 'none';
+        }
+    });
+    
+    // Navigation au clavier
+    clientSearchInput.addEventListener('keydown', function(e) {
+        const items = clientResults.querySelectorAll('.client-filter-result-item:not(.no-results)');
+        
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
+            updateSelectedItem();
+            if (items[selectedIndex]) {
+                items[selectedIndex].scrollIntoView({ block: 'nearest' });
+            }
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            selectedIndex = Math.max(selectedIndex - 1, -1);
+            updateSelectedItem();
+            if (selectedIndex >= 0 && items[selectedIndex]) {
+                items[selectedIndex].scrollIntoView({ block: 'nearest' });
+            }
+        } else if (e.key === 'Enter' && selectedIndex >= 0 && items[selectedIndex]) {
+            e.preventDefault();
+            items[selectedIndex].click();
+        } else if (e.key === 'Escape') {
+            clientResults.style.display = 'none';
+            selectedIndex = -1;
+        }
+    });
+    
+    // Quand le select change (via HTMX ou autre), mettre à jour le champ de recherche
+    clientSelect.addEventListener('change', function(e) {
+        const selectedOption = e.target.options[e.target.selectedIndex];
+        if (selectedOption) {
+            if (selectedOption.value === 'Tous') {
+                clientSearchInput.value = '';
+            } else {
+                const fullName = selectedOption.getAttribute('data-full-name') || selectedOption.textContent;
+                // Enlever l'email du texte si présent
+                const cleanName = fullName.replace(/\s*\([^)]*\)\s*$/, ''); // Enlever (email) si présent
+                clientSearchInput.value = cleanName;
+            }
+        }
+    });
+}
+
+// Initialiser quand le DOM est prêt
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeClientFilterSearch);
+} else {
+    initializeClientFilterSearch();
+}
+</script>
+
+<!-- Modal pour ajouter/modifier une ligne de commande -->
+<div id="order-line-modal" class="modal" style="display: none;">
+    <div class="modal-overlay" onclick="closeOrderLineModal()"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="order-line-modal-title">{{ icon('plus') }} Ajouter une ligne</h2>
+            <button class="modal-close" onclick="closeOrderLineModal()">×</button>
+        </div>
+        <div class="modal-body" id="order-line-modal-body">
+            <!-- Le contenu sera chargé via HTMX -->
+        </div>
+    </div>
+</div>
+<script>
+// Carte commande : fonctions partagées par toutes les lignes (déplacé depuis orders/_order_card.html)
+function toggleOrderDetails(orderId) {
+    const details = document.getElementById('details-order-' + orderId);
+    const icon = document.getElementById('icon-order-' + orderId);
+    
+    if (details.style.display === 'none') {
+        details.style.display = 'block';
+        icon.textContent = '▼';
+    } else {
+        details.style.display = 'none';
+        icon.textContent = '▶';
+    }
+}
+
+function showStatusConfirmation(message) {
+    return new Promise(function(resolve) {
+        const overlay = document.createElement('div');
+        overlay.className = 'confirm-overlay';
+        overlay.innerHTML = `
+            <div class="confirm-dialog">
+                <h3>Confirmer l’action</h3>
+                <p>${message}</p>
+                <div class="confirm-actions">
+                    <button type="button" class="btn btn-secondary confirm-cancel">Annuler</button>
+                    <button type="button" class="btn btn-primary confirm-validate">Oui, continuer</button>
+                </div>
+            </div>
+        `;
+        
+        function cleanup(result) {
+            if (overlay.parentNode) {
+                overlay.parentNode.removeChild(overlay);
+            }
+            document.removeEventListener('keydown', keyListener);
+            resolve(result);
+        }
+        
+        function keyListener(event) {
+            if (event.key === 'Escape') {
+                cleanup(false);
+            }
+        }
+        
+        overlay.addEventListener('click', function(event) {
+            if (event.target === overlay) {
+                cleanup(false);
+            }
+        });
+        
+        overlay.querySelector('.confirm-cancel').addEventListener('click', function() {
+            cleanup(false);
+        });
+        overlay.querySelector('.confirm-validate').addEventListener('click', function() {
+            cleanup(true);
+        });
+
+        const primaryButton = overlay.querySelector('.confirm-validate');
+        if (primaryButton) {
+            primaryButton.focus();
+        }
+        
+        document.body.appendChild(overlay);
+        document.addEventListener('keydown', keyListener, { once: true });
+    });
+}
+
+function cancelOrder(orderId, numero, printedQty) {
+    const overlay = document.createElement('div');
+    overlay.className = 'confirm-overlay';
+    const stockNote = printedQty > 0
+        ? `<p class="cancel-stock-note">${printedQty} objet(s) déjà imprimé(s) seront remis dans le stock produits finis.</p>`
+        : '';
+    overlay.innerHTML = `
+        <div class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="cancel-title">
+            <h3 id="cancel-title">Annuler la commande ${numero} ?</h3>
+            <p>La commande reste dans l'historique avec le statut « Annulé » mais sort de la production, de l'emballage et des statistiques.</p>
+            ${stockNote}
+            <div class="form-group">
+                <label for="cancel-reason">Motif (facultatif)</label>
+                <textarea id="cancel-reason" rows="2" placeholder="Ex : la cliente a changé d'avis"></textarea>
+            </div>
+            <p class="cancel-error" role="alert" hidden></p>
+            <div class="confirm-actions">
+                <button type="button" class="btn btn-ghost confirm-cancel">Garder la commande</button>
+                <button type="button" class="btn btn-primary btn-danger-solid confirm-validate">Annuler la commande</button>
+            </div>
+        </div>`;
+    document.body.appendChild(overlay);
+    const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey); };
+    const onKey = (e) => { if (e.key === 'Escape') close(); };
+    document.addEventListener('keydown', onKey);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    overlay.querySelector('.confirm-cancel').addEventListener('click', close);
+    overlay.querySelector('#cancel-reason').focus();
+    overlay.querySelector('.confirm-validate').addEventListener('click', function () {
+        const btn = this; btn.disabled = true;
+        const body = new URLSearchParams({ reason: overlay.querySelector('#cancel-reason').value });
+        fetch(`/orders/${orderId}/cancel`, { method: 'POST', body: body })
+            .then(r => r.json().then(data => ({ ok: r.ok, data })))
+            .then(({ ok, data }) => {
+                if (!ok) throw new Error(data.error || 'Erreur');
+                close();
+                htmx.ajax('GET', '/orders', { target: '#orders-list', swap: 'innerHTML', headers: { 'HX-Request': 'true' } });
+            })
+            .catch(err => {
+                const el = overlay.querySelector('.cancel-error');
+                el.textContent = err.message; el.hidden = false; btn.disabled = false;
+            });
+    });
+}
+
+function updateOrderStatus(orderId, newStatus) {
+    showStatusConfirmation('Êtes-vous sûr de vouloir modifier le statut de cette commande ?')
+        .then(function(confirmed) {
+            if (!confirmed) {
+                return;
+            }
+            
+            return fetch(`/orders/${orderId}/status`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `status=${newStatus}`
+            });
+        })
+        .then(function(response) {
+            if (!response) {
+                return;
+            }
+            if (response.ok) {
+                setTimeout(function() {
+                    htmx.ajax('GET', '/orders', {
+                        target: '#orders-list',
+                        swap: 'innerHTML',
+                        headers: {'HX-Request': 'true'}
+                    });
+                    const orderModal = document.getElementById('order-view-modal');
+                    if (orderModal && orderModal.style.display !== 'none') {
+                        htmx.ajax('GET', `/orders/${orderId}/card`, {
+                            target: '#order-view-modal-body',
+                            swap: 'innerHTML',
+                            headers: {'HX-Request': 'true'}
+                        });
+                    }
+                }, 100);
+            } else {
+                return response.json().then(function(data) {
+                    throw new Error(data.error || 'Erreur lors de la mise à jour');
+                });
+            }
+        })
+    .catch(function(error) {
+        if (error) {
+            alert('Erreur : ' + error.message);
+        }
+        });
+}
+
+function viewOrder(orderId) {
+    openOrderModal('edit', orderId);
+}
+
+function openOrderLineModal(mode, orderId, lineId = null) {
+    const modal = document.getElementById('order-line-modal');
+    const modalTitle = document.getElementById('order-line-modal-title');
+    const modalBody = document.getElementById('order-line-modal-body');
+    
+    if (mode === 'new') {
+        modalTitle.textContent = 'Ajouter une ligne';
+        htmx.ajax('GET', `/orders/${orderId}/lines/form/new`, {
+            target: modalBody,
+            swap: 'innerHTML'
+        }).then(() => {
+            modal.style.display = 'flex';
+        });
+    } else if (mode === 'edit' && lineId) {
+        modalTitle.textContent = 'Modifier la ligne';
+        htmx.ajax('GET', `/orders/${orderId}/lines/${lineId}/form`, {
+            target: modalBody,
+            swap: 'innerHTML'
+        }).then(() => {
+            modal.style.display = 'flex';
+        });
+    }
+}
+
+function closeOrderLineModal() {
+    const modal = document.getElementById('order-line-modal');
+    modal.style.display = 'none';
+    document.getElementById('order-line-modal-body').innerHTML = '';
+}
+
+// Exposer les fonctions globalement
+window.openOrderLineModal = openOrderLineModal;
+window.closeOrderLineModal = closeOrderLineModal;
+</script>
+{% endblock %}
+

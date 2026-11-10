@@ -1,0 +1,4 @@
+-- Migration: add Tinkercad links and 3MF file names to products (one value per line)
+-- Compatible with SQLite and PostgreSQL
+ALTER TABLE products ADD COLUMN liens_tinkercad TEXT;
+ALTER TABLE products ADD COLUMN fichiers_3mf TEXT;

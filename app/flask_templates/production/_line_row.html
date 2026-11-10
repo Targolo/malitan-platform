@@ -1,0 +1,173 @@
+{% from 'macros/icons.html' import icon %}
+{% from 'macros/badges.html' import order_status, fab_status, delivery_mode, no_packaging %}
+{% set order = line.order %}
+{% set color = line.color %}
+{% set product = line.product %}
+{% set printer = line.printer %}
+{% set stock_badge = stock_qty if stock_qty else 0 %}
+{% set start_time = time_slot.start if time_slot else line.date_debut_impression %}
+{% set end_time = time_slot.end if time_slot else line.date_fin_impression %}
+
+<div class="production-row" data-status="{{ section_key }}">
+    <div class="production-col main">
+        <div class="production-title">
+            <strong>{{ product.nom if product else 'Produit' }}</strong>
+            {% if color %}
+            <span class="production-color">
+                <span class="color-dot" style="background-color: {{ color.code_hex or 'var(--text-muted)' }};"></span>
+                {{ color.nom }}
+            </span>
+            {% endif %}
+            {% if order %}{{ delivery_mode(order.mode_livraison) }}{% endif %}
+            {% if line.personnalisation %}
+            <span class="personal-chip" title="{{ line.personnalisation }}">{{ icon('edit') }} {{ line.personnalisation }}</span>
+            {% endif %}
+            {% if line.observations %}
+            <span class="note-chip" title="{{ line.observations }}">{{ icon('message') }} {{ line.observations }}</span>
+            {% endif %}
+        </div>
+        <div class="production-order-meta">
+            {% if order and order.date_livraison_prevue %}
+            <span class="delivery-chip">{{ icon('calendar') }} {{ order.date_livraison_prevue|israel_time('%d/%m') }}</span>
+            {% endif %}
+            {% if order %}
+            <button type="button"
+                    class="link-button js-open-order-view"
+                    data-order-id="{{ order.id }}">
+                {{ icon('bag') }} {{ order.numero_commande }}
+            </button>
+            {% if order.client %}
+            <button type="button"
+                    class="link-button production-client js-open-client-view"
+                    data-client-id="{{ order.client.id }}">
+                {{ icon('users') }} {{ order.client.full_name }}
+            </button>
+            {% endif %}
+            {% endif %}
+            {% if section_key != 'imprime' %}
+            <span class="production-metrics">
+                <span>{{ icon('weight') }} {{ line.poids_total_grammes|int }} g</span>
+                <span>{{ icon('clock') }} {{ line.temps_impression_total_minutes or 0 }} min</span>
+            </span>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="production-col status">
+        {% if section_key == 'en_cours' %}
+        <div class="status-block">
+            <span>{{ icon('printer') }} {{ printer.nom if printer else '—' }}</span>
+            <span>{{ icon('clock') }} {{ start_time|israel_time('%H:%M') if start_time else '—' }}</span>
+            <span>{{ icon('arrow-right') }} {{ end_time|israel_time('%H:%M') if end_time else '—' }}</span>
+        </div>
+        {% elif section_key == 'imprime' and line.date_fin_impression %}
+        <div class="status-block">
+            <span>{{ icon('check') }} {{ line.date_fin_impression|israel_time('%d/%m %H:%M') }}</span>
+        </div>
+        {% elif section_key == 'prochain' %}
+        <button type="button"
+                class="assign-link js-open-production-modal{% if printer %} is-assigned{% endif %}"
+                data-modal-url="{{ url_for('production_assign_form', line_id=line.id) }}"
+                data-modal-title="{{ 'Changer d\'imprimante' if printer else 'Assigner une imprimante' }}"
+                {% if printer %}title="Changer d'imprimante"{% endif %}>
+            {{ icon('printer') }} {{ printer.nom if printer else 'À assigner' }}
+        </button>
+        {% elif printer %}
+        <div class="status-block">
+            <span>{{ icon('printer') }} {{ printer.nom }}</span>
+        </div>
+        {% else %}
+        <div></div>
+        {% endif %}
+    </div>
+    
+    <div class="production-col stock">
+        {% if section_key == 'file_attente' and stock_badge > 0 %}
+        <span class="badge badge-success">{{ icon('package') }} {{ stock_badge }} dispo</span>
+        {% endif %}
+    </div>
+    
+    <div class="production-col actions">
+        {% if section_key == 'en_cours' %}
+        <form hx-post="{{ url_for('production_reset_line', line_id=line.id) }}"
+              hx-target="#production-action-result"
+              hx-swap="innerHTML"
+              data-confirm="true"
+              hx-confirm="Remettre cette impression en attente ?"
+              class="inline-form">
+            <button type="submit" class="btn btn-danger btn-sm">{{ icon('x') }} Annuler</button>
+        </form>
+        <form hx-post="{{ url_for('production_complete_line', line_id=line.id) }}"
+              hx-target="#production-action-result"
+              hx-swap="innerHTML"
+              class="inline-form">
+            <button type="submit" class="btn btn-primary btn-sm">{{ icon('check') }} Terminer</button>
+        </form>
+        {% elif section_key == 'prochain' %}
+        {% if stock_badge > 0 %}
+        <form hx-post="{{ url_for('production_use_stock', line_id=line.id) }}"
+              hx-target="#production-action-result"
+              hx-swap="innerHTML"
+              data-confirm="true"
+              hx-confirm="Utiliser un objet du stock ?"
+              class="inline-form">
+            <button type="submit" class="btn btn-secondary btn-sm">{{ icon('gift') }} Stock</button>
+        </form>
+        {% endif %}
+        <button type="button"
+                class="btn btn-primary btn-sm js-open-production-modal"
+                data-modal-url="{{ url_for('production_start_form', line_id=line.id) }}"
+                data-modal-title="Démarrer l'impression">
+            {{ icon('play') }} Démarrer
+        </button>
+        <form hx-post="{{ url_for('production_complete_line', line_id=line.id) }}"
+              hx-target="#production-action-result"
+              hx-swap="innerHTML"
+              data-confirm="true"
+              hx-confirm="Marquer comme terminé sans lancer l'impression ?"
+              class="inline-form">
+            <button type="submit" class="btn btn-secondary btn-sm">{{ icon('check') }} Terminé</button>
+        </form>
+        <form hx-post="{{ url_for('production_unprioritize_line', line_id=line.id) }}"
+              hx-target="#production-action-result"
+              hx-swap="innerHTML"
+              class="inline-form">
+            <button type="submit" class="btn btn-ghost btn-sm">{{ icon('clock') }} Attente</button>
+        </form>
+        {% elif section_key == 'file_attente' %}
+        {% if stock_badge > 0 %}
+        <form hx-post="{{ url_for('production_use_stock', line_id=line.id) }}"
+              hx-target="#production-action-result"
+              hx-swap="innerHTML"
+              data-confirm="true"
+              hx-confirm="Utiliser un objet du stock ?"
+              class="inline-form">
+            <button type="submit" class="btn btn-secondary btn-sm">{{ icon('gift') }} Stock</button>
+        </form>
+        {% endif %}
+        <form hx-post="{{ url_for('production_prioritize_line', line_id=line.id) }}"
+              hx-target="#production-action-result"
+              hx-swap="innerHTML"
+              class="inline-form">
+            <button type="submit" class="btn btn-secondary btn-sm">{{ icon('star') }} Prioritaire</button>
+        </form>
+        <button type="button"
+                class="btn btn-primary btn-sm js-open-production-modal"
+                data-modal-url="{{ url_for('production_start_form', line_id=line.id) }}"
+                data-modal-title="Démarrer l'impression">
+            {{ icon('play') }} Démarrer
+        </button>
+        <form hx-post="{{ url_for('production_complete_line', line_id=line.id) }}"
+              hx-target="#production-action-result"
+              hx-swap="innerHTML"
+              data-confirm="true"
+              hx-confirm="Marquer comme terminé sans lancer l'impression ?"
+              class="inline-form">
+            <button type="submit" class="btn btn-secondary btn-sm">{{ icon('check') }} Terminé</button>
+        </form>
+        {% elif section_key == 'imprime' %}
+        <span class="badge badge-muted">En attente des autres lignes</span>
+        {% endif %}
+    </div>
+</div>
+

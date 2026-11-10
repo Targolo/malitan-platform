@@ -1,0 +1,297 @@
+{% extends "base.html" %}
+{% block page_class %}page-analytics{% endblock %}
+{% from 'macros/icons.html' import icon %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block title %}Analytics - Malitan 3D{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>{{ icon('bar-chart') }} Analytics</h1>
+        <p class="page-subtitle">Ventes, volumes et produits sur la période choisie</p>
+    </div>
+</div>
+
+<form method="get" class="filters-row" id="analytics-filters">
+    <div class="filter-field">
+        <label for="analytics-start">Date début</label>
+        <input type="date" id="analytics-start" name="start" value="{{ date_filters.start }}" onchange="this.form.submit()">
+    </div>
+    <div class="filter-field">
+        <label for="analytics-end">Date fin</label>
+        <input type="date" id="analytics-end" name="end" value="{{ date_filters.end }}" onchange="this.form.submit()">
+    </div>
+</form>
+
+<div class="metrics-grid">
+    <div class="metric-card">
+        <h3>Chiffre d'affaires</h3>
+        <p class="metric-value">{{ stats.total_ventes|format_number }} ₪</p>
+    </div>
+    <div class="metric-card">
+        <h3>Bénéfice total</h3>
+        <p class="metric-value">{{ stats.total_benefice|format_number }} ₪</p>
+    </div>
+    <div class="metric-card">
+        <h3>Commandes</h3>
+        <div class="metric-row">
+            <div class="metric-item">
+                <span class="metric-value">{{ stats.total_commandes_passees }}</span>
+                <span class="metric-label">passées</span>
+            </div>
+            <div class="metric-separator">/</div>
+            <div class="metric-item">
+                <span class="metric-value">{{ stats.nb_commandes_emballage }}</span>
+                <span class="metric-label">emballage</span>
+            </div>
+            <div class="metric-separator">/</div>
+            <div class="metric-item">
+                <span class="metric-value">{{ stats.nb_commandes_pret }}</span>
+                <span class="metric-label">prêtes</span>
+            </div>
+            <div class="metric-separator">/</div>
+            <div class="metric-item">
+                <span class="metric-value">{{ stats.nb_commandes_livrees }}</span>
+                <span class="metric-label">livrées</span>
+            </div>
+        </div>
+    </div>
+    <div class="metric-card">
+        <h3>Objets</h3>
+        <div class="metric-row">
+            <div class="metric-item">
+                <span class="metric-value">{{ stats.total_objets_produits }}</span>
+                <span class="metric-label">imprimés</span>
+            </div>
+            <div class="metric-separator">/</div>
+            <div class="metric-item">
+                <span class="metric-value">{{ stats.total_objets_commandes }}</span>
+                <span class="metric-label">commandés</span>
+            </div>
+        </div>
+    </div>
+    <div class="metric-card">
+        <h3>Part David</h3>
+        <p class="metric-value">{{ stats.total_david|format_number }} ₪</p>
+        <p class="metric-delta">Part Lea: {{ stats.total_lea|format_number }} ₪</p>
+    </div>
+</div>
+
+{% set top_products = products[:10] %}
+{% set top_colors = colors[:8] %}
+
+<div class="analytics-grid">
+    <div class="chart-card">
+        <h2>{{ icon('target') }} Top Produits</h2>
+        <canvas id="products-chart"
+                data-labels='{{ top_products|map(attribute="nom")|list|tojson }}'
+                data-values='{{ top_products|map(attribute="ventes")|list|tojson }}'></canvas>
+        <table class="analytics-table">
+            <thead>
+                <tr>
+                    <th>Produit</th>
+                    <th>Quantité</th>
+                    <th>Ventes</th>
+                    <th>Bénéfice</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for product in top_products %}
+                <tr>
+                    <td>{{ product.nom }}</td>
+                    <td>{{ product.quantite }}</td>
+                    <td>{{ product.ventes|format_number }} ₪</td>
+                    <td>{{ product.benefice|format_number }} ₪</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="chart-card">
+        <h2>{{ icon('calendar') }} Évolution des Ventes</h2>
+        <canvas id="sales-chart"
+                data-dates='{{ timeline|map(attribute="date")|list|tojson }}'
+                data-sales='{{ timeline|map(attribute="ventes")|list|tojson }}'></canvas>
+        
+        <div style="margin-top: 2rem; border-top: 1px solid #eee; padding-top: 1rem;"></div>
+        
+        <h2>{{ icon('package') }} Évolution du Volume</h2>
+        <canvas id="objects-chart"
+                data-dates='{{ timeline|map(attribute="date")|list|tojson }}'
+                data-counts='{{ timeline|map(attribute="count")|list|tojson }}'></canvas>
+    </div>
+    
+    <div class="chart-card">
+        <h2>{{ icon('droplet') }} Couleurs favorites</h2>
+        <canvas id="colors-chart"
+                data-labels='{{ top_colors|map(attribute="nom")|list|tojson }}'
+                data-values='{{ top_colors|map(attribute="quantite")|list|tojson }}'
+                data-colors='{{ top_colors|map(attribute="code_hex")|list|tojson }}'></canvas>
+        <ul class="color-list">
+            {% for color in top_colors %}
+            <li>{{ color.nom }} — {{ color.quantite }} objets</li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+if (window.Chart) {
+    Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+    Chart.defaults.color = cssVar('--text-secondary');
+}
+
+function initBarChart(canvasId) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas || !window.Chart) return;
+    const labels = JSON.parse(canvas.dataset.labels || '[]');
+    const values = JSON.parse(canvas.dataset.values || '[]');
+    new Chart(canvas, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [{
+                label: 'Ventes (₪)',
+                data: values,
+                backgroundColor: cssVar('--primary')
+            }]
+        },
+        options: {
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: { 
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ") + ' ₪';
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function initPieChart(canvasId) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas || !window.Chart) return;
+    const labels = JSON.parse(canvas.dataset.labels || '[]');
+    const values = JSON.parse(canvas.dataset.values || '[]');
+    const colors = JSON.parse(canvas.dataset.colors || '[]');
+    
+    // Fallback colors if not enough provided
+    const defaultColors = ['#845ef7', '#fcc419', '#51cf66', '#ff6b6b', '#339af0', '#f783ac', '#a9e34b', '#ffd43b'];
+
+    new Chart(canvas, {
+        type: 'doughnut',
+        data: {
+            labels,
+            datasets: [{
+                data: values,
+                backgroundColor: colors.length > 0 ? colors : defaultColors
+            }]
+        }
+    });
+}
+
+function initSalesChart(canvasId) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas || !window.Chart) return;
+    const dates = JSON.parse(canvas.dataset.dates || '[]');
+    const sales = JSON.parse(canvas.dataset.sales || '[]');
+    
+    new Chart(canvas, {
+        type: 'line',
+        data: {
+            labels: dates,
+            datasets: [{
+                label: 'Ventes (₪)',
+                data: sales,
+                borderColor: cssVar('--green'),
+                backgroundColor: cssVar('--green-soft'),
+                borderWidth: 3,
+                tension: 0.3,
+                fill: true
+            }]
+        },
+        options: {
+            scales: {
+                y: { 
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ") + ' ₪';
+                        }
+                    }
+                }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            if (context.parsed.y !== null) {
+                                label += context.parsed.y.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ") + ' ₪';
+                            }
+                            return label;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function initObjectsChart(canvasId) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas || !window.Chart) return;
+    const dates = JSON.parse(canvas.dataset.dates || '[]');
+    const counts = JSON.parse(canvas.dataset.counts || '[]');
+    
+    new Chart(canvas, {
+        type: 'bar',
+        data: {
+            labels: dates,
+            datasets: [{
+                label: 'Objets',
+                data: counts,
+                backgroundColor: cssVar('--primary'),
+                borderRadius: 4
+            }]
+        },
+        options: {
+            scales: {
+                y: { 
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            },
+            plugins: {
+                legend: { display: false }
+            }
+        }
+    });
+}
+
+initBarChart('products-chart');
+initSalesChart('sales-chart');
+initObjectsChart('objects-chart');
+initPieChart('colors-chart');
+</script>
+{% endblock %}

@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+{% block page_class %}page-catalogue{% endblock %}
+{% from 'macros/icons.html' import icon %}
+
+{% block title %}Catalogue - Malitan 3D Manager{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <h1>{{ icon('monitor') }} Catalogue</h1>
+    </div>
+    
+    <!-- Tabs Navigation -->
+    <div class="tabs-card" id="catalogue-tabs">
+        <div class="tab-buttons">
+            <button 
+                class="tab-button {% if active_tab == 'produits' %}active{% endif %}" 
+                data-tab-target="produits-tab"
+                onclick="switchTab(event, 'produits')">
+                {{ icon('package') }} Produits
+            </button>
+            <button 
+                class="tab-button {% if active_tab == 'couleurs' %}active{% endif %}" 
+                data-tab-target="couleurs-tab"
+                onclick="switchTab(event, 'couleurs')">
+                {{ icon('droplet') }} Couleurs
+            </button>
+            <button 
+                class="tab-button {% if active_tab == 'imprimantes' %}active{% endif %}" 
+                data-tab-target="imprimantes-tab"
+                onclick="switchTab(event, 'imprimantes')">
+                {{ icon('printer') }} Imprimantes
+            </button>
+        </div>
+        
+        <!-- Tab Content -->
+        <div class="tabs-content">
+            <!-- Produits Tab -->
+            <section id="produits-tab" class="tab-panel {% if active_tab == 'produits' %}active{% endif %}">
+                {% include 'catalogue/_products_tab.html' %}
+            </section>
+            
+            <!-- Couleurs Tab -->
+            <section id="couleurs-tab" class="tab-panel {% if active_tab == 'couleurs' %}active{% endif %}">
+                {% include 'catalogue/_colors_tab.html' %}
+            </section>
+            
+            <!-- Imprimantes Tab -->
+            <section id="imprimantes-tab" class="tab-panel {% if active_tab == 'imprimantes' %}active{% endif %}">
+                {% include 'catalogue/_printers_tab.html' %}
+            </section>
+        </div>
+    </div>
+</div>
+
+<!-- Modal pour Produits -->
+<div id="productModal" class="modal" style="display: none;">
+    <div class="modal-overlay" onclick="closeProductModal()"></div>
+    <div class="modal-content modal-large">
+        <div id="productModalContent">
+            <!-- Le contenu du formulaire sera chargé ici via HTMX -->
+        </div>
+    </div>
+</div>
+
+<!-- Modal pour Couleurs -->
+<div id="colorModal" class="modal" style="display: none;">
+    <div class="modal-overlay" onclick="closeColorModal()"></div>
+    <div class="modal-content">
+        <div id="colorModalContent">
+            <!-- Le contenu du formulaire sera chargé ici via HTMX -->
+        </div>
+    </div>
+</div>
+
+<!-- Modal pour Imprimantes -->
+<div id="printerModal" class="modal" style="display: none;">
+    <div class="modal-overlay" onclick="closePrinterModal()"></div>
+    <div class="modal-content">
+        <div id="printerModalContent">
+            <!-- Le contenu du formulaire sera chargé ici via HTMX -->
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+{# Catalogue styles moved to flask_static/css/style.css #}
+
+<script>
+// Switch between tabs
+function switchTab(event, tabName) {
+    const container = document.getElementById('catalogue-tabs');
+    if (!container) return;
+    
+    // Hide all tabs
+    const tabPanels = container.querySelectorAll('.tab-panel');
+    tabPanels.forEach(panel => panel.classList.remove('active'));
+    
+    // Remove active class from all buttons
+    const tabButtons = container.querySelectorAll('.tab-button');
+    tabButtons.forEach(btn => btn.classList.remove('active'));
+    
+    // Show selected tab
+    const targetPanel = document.getElementById(tabName + '-tab');
+    if (targetPanel) {
+        targetPanel.classList.add('active');
+    }
+    
+    // Add active class to clicked button
+    event.target.classList.add('active');
+    
+    // Update URL without reload
+    const url = new URL(window.location);
+    url.searchParams.set('tab', tabName);
+    window.history.pushState({}, '', url);
+}
+
+// Modal functions for Product
+window.openProductModal = function() {
+    document.getElementById('productModal').style.display = 'block';
+}
+
+window.closeProductModal = function() {
+    document.getElementById('productModal').style.display = 'none';
+    document.getElementById('productModalContent').innerHTML = '';
+}
+
+// Modal functions for Color
+window.openColorModal = function() {
+    document.getElementById('colorModal').style.display = 'block';
+}
+
+window.closeColorModal = function() {
+    document.getElementById('colorModal').style.display = 'none';
+    document.getElementById('colorModalContent').innerHTML = '';
+}
+
+// Modal functions for Printer
+window.openPrinterModal = function() {
+    document.getElementById('printerModal').style.display = 'block';
+}
+
+window.closePrinterModal = function() {
+    document.getElementById('printerModal').style.display = 'none';
+    document.getElementById('printerModalContent').innerHTML = '';
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const productModal = document.getElementById('productModal');
+    const colorModal = document.getElementById('colorModal');
+    const printerModal = document.getElementById('printerModal');
+    
+    if (event.target === productModal) {
+        closeProductModal();
+    }
+    if (event.target === colorModal) {
+        closeColorModal();
+    }
+    if (event.target === printerModal) {
+        closePrinterModal();
+    }
+}
+
+// Close modals with ESC key
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        const productModal = document.getElementById('productModal');
+        const colorModal = document.getElementById('colorModal');
+        const printerModal = document.getElementById('printerModal');
+        
+        if (productModal && productModal.style.display === 'block') {
+            closeProductModal();
+        }
+        if (colorModal && colorModal.style.display === 'block') {
+            closeColorModal();
+        }
+        if (printerModal && printerModal.style.display === 'block') {
+            closePrinterModal();
+        }
+    }
+});
+
+// HTMX event listeners
+document.body.addEventListener('htmx:afterSwap', function(event) {
+    // Handle product form responses
+    const response = event.detail.xhr ? event.detail.xhr.response : '';
+    const target = event.detail.target;
+    
+    // Check if this is a product form response
+    if (target === document.body && response) {
+        // Check if it's an error response
+        if (response.includes('alert alert-error')) {
+            // Extract error message and display in modal
+            const errorDiv = document.getElementById('product-form-error');
+            if (errorDiv) {
+                errorDiv.innerHTML = response;
+                errorDiv.style.display = 'block';
+                // Scroll to error
+                errorDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            } else {
+                // Fallback: show alert
+                alert('Erreur: ' + (response.match(/❌\s*([^<]+)/) || ['Erreur lors de la création'])[1]);
+            }
+            // Remove the error from body since we've displayed it
+            const bodyErrorDivs = document.body.querySelectorAll('.alert.alert-error');
+            bodyErrorDivs.forEach(div => div.remove());
+        } 
+        // Check if it's a success response (script tag)
+        else if (response.includes('setTimeout(function() { window.location.reload()')) {
+            // Script will auto-reload - clear any previous errors
+            const errorDiv = document.getElementById('product-form-error');
+            if (errorDiv) {
+                errorDiv.style.display = 'none';
+                errorDiv.innerHTML = '';
+            }
+        }
+    }
+    
+    // Auto close modal and refresh after successful form submission
+    if (event.detail.target.id === 'productModalContent' || 
+        event.detail.target.id === 'colorModalContent' || 
+        event.detail.target.id === 'printerModalContent') {
+        // Check if response indicates success (we'll handle this in routes)
+        if (response && response.includes('setTimeout(function() { window.location.reload()')) {
+            // Script will auto-reload
+        }
+    }
+});
+
+// Also handle HTMX errors: show the server's message (JSON error or HTML alert) as plain text
+document.body.addEventListener('htmx:responseError', function(event) {
+    const errorDiv = document.getElementById('product-form-error');
+    if (errorDiv) {
+        const raw = (event.detail.xhr && event.detail.xhr.responseText) || '';
+        let message = '';
+        try {
+            const data = JSON.parse(raw);
+            if (data && data.error) message = data.error;
+        } catch (e) {
+            const text = new DOMParser().parseFromString(raw, 'text/html').body.textContent || '';
+            message = text.replace(/\s+/g, ' ').replace(/^\s*❌\s*/, '').trim();
+        }
+        if (!message || message.length > 300) message = 'Erreur lors de la communication avec le serveur. Veuillez réessayer.';
+        const alertBox = document.createElement('div');
+        alertBox.className = 'alert-error';
+        alertBox.textContent = '❌ ' + message;
+        errorDiv.replaceChildren(alertBox);
+        errorDiv.style.display = 'block';
+        errorDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+});
+</script>
+{% endblock %}
+

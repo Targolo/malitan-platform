@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% from 'macros/icons.html' import icon %}
+
+{% block title %}Notifications Telegram — Malitan 3D{% endblock %}
+
+{% block content %}
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% for category, message in messages %}
+  <div class="alert-chip {{ 'success' if category == 'success' else 'warning' }}" style="margin-bottom: var(--space-2);">
+    <span class="alert-dot"></span>
+    <span class="alert-message">{{ message }}</span>
+  </div>
+  {% endfor %}
+{% endwith %}
+
+<div class="card" style="max-width: 640px;">
+  <h2>{{ icon('bell') }} Notifications Telegram</h2>
+
+  {% if not telegram_enabled %}
+  <div class="alert-chip warning" style="margin-bottom: var(--space-2);">
+    <span class="alert-dot"></span>
+    <span class="alert-message">
+      Le bot Telegram n'est pas configuré (<code>TELEGRAM_BOT_TOKEN</code> manquant dans <code>.env.local</code>).
+    </span>
+  </div>
+  {% endif %}
+
+  <div style="margin-bottom: var(--space-3);">
+    <h3 style="margin-bottom: var(--space-8);">Comment trouver mon Chat ID ?</h3>
+    <ol style="padding-left: var(--space-3); line-height: 1.8;">
+      <li>Ouvre Telegram et cherche le bot <strong>@userinfobot</strong></li>
+      <li>Envoie-lui n'importe quel message</li>
+      <li>Il te répond avec ton <code>Id</code> numérique — c'est ton Chat ID</li>
+      <li>Colle-le ci-dessous et enregistre</li>
+    </ol>
+    <p style="margin-top: var(--space-8); color: var(--text-muted); font-size: var(--text-sm);">
+      Tu recevras un message de confirmation dès que tu sauvegardes.
+    </p>
+  </div>
+
+  <form method="post" action="{{ url_for('settings_telegram_save') }}">
+    <div style="margin-bottom: var(--space-2);">
+      <label for="telegram_chat_id" style="display: block; margin-bottom: var(--space-8); font-weight: 600;">
+        Mon Chat ID Telegram
+      </label>
+      <input
+        type="text"
+        id="telegram_chat_id"
+        name="telegram_chat_id"
+        value="{{ current_chat_id or '' }}"
+        placeholder="ex. 123456789"
+        style="width: 100%; max-width: 320px;"
+        {% if not telegram_enabled %}disabled{% endif %}
+      >
+    </div>
+    <div style="display: flex; gap: var(--space-8); align-items: center;">
+      <button type="submit" class="btn btn-primary" {% if not telegram_enabled %}disabled{% endif %}>
+        Enregistrer
+      </button>
+      {% if current_chat_id %}
+      <span style="color: var(--text-muted); font-size: var(--text-sm);">
+        {{ icon('check') }} Chat ID enregistré
+      </span>
+      {% endif %}
+    </div>
+  </form>
+</div>
+
+<div class="card" style="max-width: 640px; margin-top: var(--space-2);">
+  <h3>Événements notifiés</h3>
+  <table style="width: 100%; border-collapse: collapse;">
+    <thead>
+      <tr>
+        <th style="text-align: left; padding: var(--space-8); border-bottom: 1px solid var(--border);">Événement</th>
+        <th style="text-align: left; padding: var(--space-8); border-bottom: 1px solid var(--border);">Destinataire</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="padding: var(--space-8); border-bottom: 1px solid var(--border);">🆕 Nouvelle commande créée</td>
+        <td style="padding: var(--space-8); border-bottom: 1px solid var(--border);">David</td>
+      </tr>
+      <tr>
+        <td style="padding: var(--space-8); border-bottom: 1px solid var(--border);">{{ icon('dollar') }} Commande payée (PAYÉ)</td>
+        <td style="padding: var(--space-8); border-bottom: 1px solid var(--border);">David</td>
+      </tr>
+      <tr>
+        <td style="padding: var(--space-8); border-bottom: 1px solid var(--border);">{{ icon('package') }} Article déposé chez Lea (LIVRE_LEA)</td>
+        <td style="padding: var(--space-8); border-bottom: 1px solid var(--border);">Lea</td>
+      </tr>
+      <tr>
+        <td style="padding: var(--space-8);">{{ icon('truck') }} Commande prête à livrer (PRÊT LIVRAISON)</td>
+        <td style="padding: var(--space-8);">Lea</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div style="margin-top: var(--space-2);">
+  <a href="{{ url_for('settings') }}" class="btn btn-ghost">← Retour aux paramètres</a>
+</div>
+{% endblock %}

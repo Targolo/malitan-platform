@@ -1,0 +1,31 @@
+<div class="metrics-grid">
+    <div class="metric-card">
+        <h3>Objets disponibles</h3>
+        <p class="metric-value">{{ summary.total_quantity or 0 }}</p>
+        <p class="metric-delta">Toutes couleurs incluses</p>
+    </div>
+    <div class="metric-card">
+        <h3>Combinaisons suivies</h3>
+        <p class="metric-value">{{ summary.total_products or 0 }}</p>
+        <p class="metric-delta">{{ summary.products_with_stock or 0 }} avec stock</p>
+    </div>
+    <div class="metric-card">
+        <h3>Entrées récentes</h3>
+        <p class="metric-value text-success">+{{ summary.recent_entrees_count or 0 }}</p>
+        <p class="metric-delta">Sur les 10 derniers mouvements</p>
+    </div>
+    <div class="metric-card">
+        <h3>Sorties récentes</h3>
+        <p class="metric-value text-warning">-{{ summary.recent_sorties_count or 0 }}</p>
+        <p class="metric-delta">Préparations / livraisons</p>
+    </div>
+</div>
+
+
+
+
+
+
+
+
+

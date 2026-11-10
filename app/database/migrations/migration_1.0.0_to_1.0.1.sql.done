@@ -1,0 +1,21 @@
+-- =====================================================
+-- Migration: 1.0.0 -> 1.0.1
+-- Date: 2025-11-08
+-- Description: Rendre le type de filament obligatoire
+-- =====================================================
+
+-- Étape 1: Mettre à jour les couleurs existantes qui n'ont pas de type
+-- (définir un type par défaut: PLA)
+UPDATE colors 
+SET type_filament = 'pla' 
+WHERE type_filament IS NULL;
+
+-- Étape 2: Ajouter la contrainte NOT NULL
+ALTER TABLE colors 
+ALTER COLUMN type_filament SET NOT NULL;
+
+-- Vérification: Afficher le nombre de couleurs sans type (devrait être 0)
+SELECT COUNT(*) as colors_without_type 
+FROM colors 
+WHERE type_filament IS NULL;
+

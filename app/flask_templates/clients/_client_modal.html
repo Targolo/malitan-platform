@@ -1,0 +1,45 @@
+<div class="client-modal-wrapper">
+    <section class="client-modal-section">
+        <div>
+            <p class="modal-subtitle">Informations principales</p>
+            <div class="client-modal-grid">
+                <div>
+                    <span class="client-modal-label">Nom complet</span>
+                    <p class="client-modal-value">{{ client.full_name }}</p>
+                </div>
+                <div>
+                    <span class="client-modal-label">Email</span>
+                    <p class="client-modal-value">{{ client.email or '—' }}</p>
+                </div>
+                <div>
+                    <span class="client-modal-label">Téléphone</span>
+                    <p class="client-modal-value">{{ client.telephone or '—' }}</p>
+                </div>
+                <div>
+                    <span class="client-modal-label">Provenance</span>
+                    <p class="client-modal-value">{{ client.provenance or '—' }}</p>
+                </div>
+            </div>
+        </div>
+    </section>
+    {% if client.adresse %}
+    <section class="client-modal-section">
+        <p class="modal-subtitle">Adresse</p>
+        <p class="client-modal-value">{{ client.adresse|replace('\n', '<br>')|safe }}</p>
+    </section>
+    {% endif %}
+    {% if client.notes %}
+    <section class="client-modal-section">
+        <p class="modal-subtitle">Notes</p>
+        <p class="client-modal-value">{{ client.notes }}</p>
+    </section>
+    {% endif %}
+</div>
+
+
+
+
+
+
+
+

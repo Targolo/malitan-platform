@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% from 'macros/icons.html' import icon %}
+
+{% block title %}{{ page_title }} - Malitan 3D Manager{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <h1>{{ page_icon }} {{ page_title }}</h1>
+    </div>
+    
+    <div style="text-align: center; padding: 60px 20px; background: var(--bg); border-radius: 8px; margin-top: 40px;">
+        <h2 style="color: var(--text-secondary); margin-bottom: 20px;">{{ icon('alert') }} Page en cours de migration</h2>
+        <p style="color: #868e96; font-size: var(--text-base);">
+            Cette page est actuellement en cours de migration depuis Streamlit vers Flask.
+        </p>
+        <p style="color: #868e96; font-size: var(--text-sm); margin-top: 10px;">
+            Veuillez utiliser temporairement la version Streamlit pour accéder à cette fonctionnalité.
+        </p>
+    </div>
+</div>
+{% endblock %}
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,36 @@
+-- =====================================================
+-- Migration 1.0.6 to 1.1.0
+-- Ajout de la fonctionnalité de personnalisation
+-- =====================================================
+-- Date: 2025-01-XX
+-- Description: 
+--   - Ajout du champ 'personalisable' (boolean) à la table products
+--   - Ajout du champ 'personnalisation' (text) à la table order_lines
+--   - Permet de marquer certains produits comme personnalisables
+--   - Permet de stocker le texte de personnalisation sur les lignes de commande
+
+BEGIN;
+
+-- Ajouter colonne 'personalisable' à la table products
+ALTER TABLE products 
+ADD COLUMN IF NOT EXISTS personalisable BOOLEAN DEFAULT FALSE;
+
+-- Ajouter colonne 'personnalisation' à la table order_lines
+ALTER TABLE order_lines 
+ADD COLUMN IF NOT EXISTS personnalisation TEXT;
+
+-- Mettre à jour les valeurs existantes (par défaut, aucun produit n'est personnalisable)
+UPDATE products SET personalisable = FALSE WHERE personalisable IS NULL;
+
+COMMENT ON COLUMN products.personalisable IS 'Indique si le produit peut être personnalisé (ex: prénom, texte)';
+COMMENT ON COLUMN order_lines.personnalisation IS 'Texte de personnalisation pour cette ligne de commande (ex: prénom, texte personnalisé)';
+
+COMMIT;
+
+-- Vérification
+SELECT 
+    'Migration 1.0.6 to 1.1.0 completed successfully' as status,
+    COUNT(*) FILTER (WHERE personalisable = TRUE) as produits_personnalisables,
+    COUNT(*) FILTER (WHERE personnalisation IS NOT NULL) as lignes_avec_personnalisation
+FROM products, order_lines;
+

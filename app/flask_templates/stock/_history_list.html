@@ -1,0 +1,45 @@
+{% from 'macros/icons.html' import icon %}
+<div class="list-header">
+    <p><strong>{{ history_count }} mouvement(s)</strong></p>
+</div>
+
+{% if not history_entries %}
+<div class="empty-state">
+    Aucun mouvement pour ce filtre.
+</div>
+{% else %}
+<div class="history-list">
+    {% for movement in history_entries %}
+    {% set is_entry = movement.type.value == 'entree' %}
+    <div class="history-row">
+        <div class="history-type {% if is_entry %}text-success{% else %}text-warning{% endif %}">
+            {{ 'Entrée' if is_entry else 'Sortie' }}
+        </div>
+        <div class="history-product">
+            <strong>{{ movement.product.nom }}</strong>
+        </div>
+        <div class="history-color">
+            {% if movement.color and movement.color.code_hex %}
+            <span class="color-dot" style="background-color: {{ movement.color.code_hex }};"></span>
+            {% endif %}
+            <span>{{ movement.color.nom if movement.color else '' }}</span>
+        </div>
+        <div class="history-quantity {% if is_entry %}text-success{% else %}text-warning{% endif %}">
+            {{ '+' if is_entry else '-' }}{{ movement.quantite }}
+        </div>
+        <div class="history-date">
+            {{ movement.date.strftime('%d/%m/%Y %H:%M') }}
+        </div>
+        <div class="history-meta">
+            {% if movement.order_line and movement.order_line.order %}
+            <span>{{ icon('bag') }} {{ movement.order_line.order.numero_commande }}</span>
+            {% elif movement.observations %}
+            <span>{{ icon('message') }} {{ movement.observations[:60] }}{% if movement.observations|length > 60 %}...{% endif %}</span>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+

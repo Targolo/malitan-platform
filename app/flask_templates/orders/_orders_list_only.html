@@ -1,0 +1,5 @@
+{# Fragment HTMX - Liste des commandes uniquement (pour rechargement après filtres) #}
+{% for order in orders %}
+    {% include 'orders/_order_card.html' %}
+{% endfor %}
+{% with oob = true %}{% include 'orders/_orders_count.html' %}{% endwith %}

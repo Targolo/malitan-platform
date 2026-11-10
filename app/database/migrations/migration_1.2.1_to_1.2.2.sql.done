@@ -1,0 +1,23 @@
+-- =====================================================
+-- Migration 1.2.1 to 1.2.2
+-- Ajout du champ 'adresse' unifié dans la table clients
+-- =====================================================
+-- Date: 2025-01-XX
+-- Description: Ajout d'un champ 'adresse' unique pour remplacer adresse_fr et adresse_he
+-- Les champs adresse_fr et adresse_he sont migrés puis supprimés
+
+-- Add new unified address field
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS adresse TEXT;
+
+-- Migrate existing data: copy adresse_fr or adresse_he to the new adresse field
+-- Logic: Copy adresse_fr if it exists, otherwise copy adresse_he
+-- Note: No client has both adresse_fr and adresse_he filled, so COALESCE is safe
+UPDATE clients 
+SET adresse = COALESCE(adresse_fr, adresse_he)
+WHERE adresse IS NULL 
+  AND (adresse_fr IS NOT NULL OR adresse_he IS NOT NULL);
+
+-- Remove deprecated address columns after migration
+ALTER TABLE clients DROP COLUMN IF EXISTS adresse_fr;
+ALTER TABLE clients DROP COLUMN IF EXISTS adresse_he;
+

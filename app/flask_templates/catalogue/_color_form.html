@@ -1,0 +1,108 @@
+{% from 'macros/icons.html' import icon %}
+<div class="modal-header">
+    <h2>{% if color %}{{ icon('edit') }} Modifier la couleur{% else %}{{ icon('plus') }} Nouvelle couleur{% endif %}</h2>
+</div>
+
+<div class="modal-body">
+<form 
+    {% if color %}
+    hx-post="{{ url_for('color_update', color_id=color.id) }}"
+    {% else %}
+    hx-post="{{ url_for('color_create') }}"
+    {% endif %}
+    hx-target="body"
+    hx-swap="beforeend"
+    class="catalog-form">
+    
+    <div class="form-row">
+        <div class="form-group col-md-4">
+            <label for="nom">Nom *</label>
+            <input type="text" class="form-control" id="nom" name="nom" 
+                   value="{% if color %}{{ color.nom }}{% endif %}" required>
+        </div>
+        
+        <div class="form-group col-md-4">
+            <label for="nom_original">Nom original</label>
+            <input type="text" class="form-control" id="nom_original" name="nom_original" 
+                   value="{% if color %}{{ color.nom_original or '' }}{% endif %}" 
+                   placeholder="Army blue">
+        </div>
+        
+        <div class="form-group col-md-4">
+            <label for="code_hex">Code couleur</label>
+            <input type="text" class="form-control" id="code_hex" name="code_hex" 
+                   value="{% if color %}{{ color.code_hex or '' }}{% endif %}" 
+                   placeholder="#87CEEB">
+        </div>
+    </div>
+    
+    <div class="form-row">
+        <div class="form-group col-md-6">
+            <label for="marque">Marque</label>
+            <input type="text" class="form-control" id="marque" name="marque" 
+                   value="{% if color %}{{ color.marque or '' }}{% endif %}" 
+                   placeholder="eSUN, Prusament...">
+        </div>
+        
+        <div class="form-group col-md-6">
+            <label for="type_filament">Type de filament *</label>
+            <select class="form-control" id="type_filament" name="type_filament" required>
+                <option value="">-- Sélectionner --</option>
+                {% for filament_type in filament_types %}
+                <option value="{{ filament_type.value }}" 
+                    {% if color and color.type_filament == filament_type %}selected{% endif %}>
+                    {{ filament_type.value.upper().replace('_', ' ') }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+    
+    <div class="form-row">
+        {% if not color %}
+        <div class="form-group col-md-4">
+            <label for="stock_initial">Stock initial (grammes)</label>
+            <input type="number" class="form-control" id="stock_initial" name="stock_initial" 
+                   value="0" min="0" step="100">
+        </div>
+        {% endif %}
+        
+        <div class="form-group col-md-{% if color %}6{% else %}4{% endif %}">
+            <label for="cout_par_kg">Coût par kg (₪) *</label>
+            <input type="number" class="form-control" id="cout_par_kg" name="cout_par_kg" 
+                   value="{% if color %}{{ color.cout_par_kg|int }}{% else %}50{% endif %}" 
+                   min="0" step="5" required>
+        </div>
+        
+        <div class="form-group col-md-{% if color %}6{% else %}4{% endif %}">
+            <label for="seuil_alerte">Seuil d'alerte (grammes)</label>
+            <input type="number" class="form-control" id="seuil_alerte" name="seuil_alerte" 
+                   value="{% if color %}{{ color.seuil_alerte|int }}{% else %}500{% endif %}" 
+                   min="0" step="100">
+        </div>
+    </div>
+    
+    {% if color %}
+    <div class="form-group">
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" id="actif" name="actif"
+                   {% if color.actif %}checked{% endif %}
+                   style="width: 20px; height: 20px; cursor: pointer; margin: 0; flex-shrink: 0;">
+            <label for="actif" style="cursor: pointer; margin: 0; display: flex; align-items: center; gap: 8px;">
+                <span style="font-weight: 500; font-size: var(--text-sm);">{{ icon('check') }} Actif</span>
+                <span class="info-tooltip" title="La couleur est visible et utilisable">ⓘ</span>
+            </label>
+        </div>
+    </div>
+    {% endif %}
+    
+    <div class="form-actions">
+        <button type="button" class="btn btn-ghost" onclick="closeColorModal()">{{ icon('x') }} Annuler</button>
+        <button type="submit" class="btn btn-primary">
+            {% if color %}{{ icon('save') }} Enregistrer{% else %}{{ icon('check') }} Créer{% endif %}
+        </button>
+    </div>
+</form>
+</div>
+
+

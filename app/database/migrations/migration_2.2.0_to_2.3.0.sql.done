@@ -1,0 +1,50 @@
+-- =====================================================
+-- Migration 2.2.0 → 2.3.0
+-- Simplification du système de reversements (balance/solde)
+-- =====================================================
+-- 
+-- CHANGEMENTS :
+-- - Suppression des champs de tracking par ligne dans order_lines :
+--   * reverse (boolean)
+--   * date_reversement (timestamp)
+--   * reversement_id (FK)
+-- - La table reversements devient un simple journal des paiements
+-- - Le solde à reverser = Total calculé - Sum(reversements)
+-- =====================================================
+
+-- 1. Supprimer l'index sur reverse (plus utile)
+DROP INDEX IF EXISTS idx_order_lines_reverse;
+
+-- 2. Supprimer la contrainte FK vers reversements
+ALTER TABLE order_lines 
+DROP CONSTRAINT IF EXISTS order_lines_reversement_id_fkey;
+
+-- 3. Supprimer les colonnes de tracking par ligne
+ALTER TABLE order_lines DROP COLUMN IF EXISTS reverse;
+ALTER TABLE order_lines DROP COLUMN IF EXISTS date_reversement;
+ALTER TABLE order_lines DROP COLUMN IF EXISTS reversement_id;
+
+-- 4. Renommer les colonnes de reversements pour plus de clarté
+-- montant_total -> montant (c'est juste un montant, pas un total de lignes)
+-- observations -> commentaire (plus clair)
+ALTER TABLE reversements RENAME COLUMN montant_total TO montant;
+ALTER TABLE reversements RENAME COLUMN observations TO commentaire;
+
+-- 5. Ajouter un commentaire sur la table reversements pour clarifier son usage
+COMMENT ON TABLE reversements IS 'Journal des paiements à David. Le solde = Total calculé depuis order_lines - Sum(montant)';
+
+-- =====================================================
+-- VÉRIFICATION
+-- =====================================================
+-- Vérifier que les colonnes ont été supprimées
+SELECT column_name 
+FROM information_schema.columns 
+WHERE table_name = 'order_lines' 
+  AND column_name IN ('reverse', 'date_reversement', 'reversement_id');
+-- Résultat attendu : 0 lignes
+
+-- Vérifier la structure de la table order_lines
+SELECT column_name, data_type 
+FROM information_schema.columns 
+WHERE table_name = 'order_lines'
+ORDER BY ordinal_position;

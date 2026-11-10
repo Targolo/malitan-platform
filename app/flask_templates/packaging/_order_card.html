@@ -1,0 +1,74 @@
+{% from 'macros/icons.html' import icon %}
+{% from 'macros/badges.html' import order_status, fab_status, delivery_mode, no_packaging %}
+<div class="packaging-card">
+    <div class="packaging-card-header">
+        <div>
+            <h3>{{ icon('bag') }} {{ order.numero_commande }}</h3>
+            <p class="packaging-client">
+                {{ icon('users') }} {{ order.client.full_name if order.client else 'Client inconnu' }}
+                {% if order.client and order.client.telephone %}
+                • {{ icon('phone') }} {{ order.client.telephone }}
+                {% endif %}
+            </p>
+        </div>
+        <div class="packaging-tags">
+            {% if order.date_livraison_prevue %}
+            <span class="order-status status-delivery-date">{{ icon('calendar') }} {{ order.date_livraison_prevue|israel_time('%d/%m') }}</span>
+            {% endif %}
+            {{ delivery_mode(order.mode_livraison) }}
+        </div>
+    </div>
+    
+    <div class="packaging-lines">
+        {% for line in order.order_lines %}
+        <div class="packaging-line">
+            <div>
+                <strong>{{ line.product.nom if line.product else 'Produit' }}</strong>
+            </div>
+            <div class="line-color">
+                {% if line.color %}
+                <span class="color-dot" style="background-color: {{ line.color.code_hex or 'var(--text-muted)' }};"></span>
+                <span>{{ line.color.nom }}</span>
+                {% endif %}
+            </div>
+            {% if line.personnalisation %}
+            <div class="line-personnalisation">{{ icon('edit') }} {{ line.personnalisation }}</div>
+            {% endif %}
+            {% if line.observations %}
+            <div class="line-observations-icon" title="{{ line.observations }}">
+                {{ icon('message') }}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    
+    <div class="packaging-footer">
+        <div class="packaging-notes">
+            {% if order.ne_pas_emballer %}
+            <span class="badge badge-warning">{{ icon('slash') }} Emballage inutile</span>
+            {% endif %}
+            {% if order.observations %}
+            <p>{{ icon('file-text') }} {{ order.observations }}</p>
+            {% endif %}
+        </div>
+        <div class="packaging-actions">
+            <button onclick="viewOrder({{ order.id }})" class="btn btn-secondary btn-sm">{{ icon('eye') }} Voir commande</button>
+            {% if not readonly %}
+            <form hx-post="{{ url_for('packaging_mark_ready', order_id=order.id) }}"
+                  hx-target="#packaging-action-result"
+                  hx-swap="innerHTML"
+                  data-confirm="true"
+                  hx-confirm="{% if order.ne_pas_emballer %}Confirmer le transfert vers l'atelier externe ?{% else %}Confirmer l'envoi en fenêtre Livraison ?{% endif %}"
+                  style="display: inline;">
+                {% if order.ne_pas_emballer %}
+                <button type="submit" class="btn btn-primary btn-sm" title="Marquer comme transféré à Léa">{{ icon('arrow-right') }} Transféré</button>
+                {% else %}
+                <button type="submit" class="btn btn-primary btn-sm">{{ icon('truck') }} À livrer</button>
+                {% endif %}
+            </form>
+            {% endif %}
+        </div>
+    </div>
+</div>
+

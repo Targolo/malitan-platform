@@ -1,0 +1,31 @@
+{% if not metrics %}
+<p class="empty-state">Sélectionnez un produit, une couleur et une quantité pour afficher les métriques.</p>
+{% else %}
+<div class="metrics-inline">
+    <div class="mini-card">
+        <p class="mini-label">Stock actuel</p>
+        <p class="mini-value">{{ metrics.current_stock }} pièce(s)</p>
+    </div>
+    <div class="mini-card">
+        <p class="mini-label">Temps impression</p>
+        <p class="mini-value">{{ metrics.temps_total }} min</p>
+    </div>
+    <div class="mini-card">
+        <p class="mini-label">Poids total</p>
+        <p class="mini-value">{{ metrics.poids_total }} g</p>
+    </div>
+    <div class="mini-card">
+        <p class="mini-label">Coût filament</p>
+        <p class="mini-value">{{ "%.0f"|format(metrics.filament_cost) }} ₪</p>
+    </div>
+</div>
+{% endif %}
+
+
+
+
+
+
+
+
+

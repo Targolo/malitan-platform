@@ -25,3 +25,9 @@ __pycache__/
 # Kubernetes credentials
 .kube/
 *kubeconfig*
+
+# other
+data/
+exports/
+backups/
+*.log

@@ -1,0 +1,61 @@
+{% from 'macros/icons.html' import icon %}
+<div class="modal-header">
+    <h2>{% if printer %}{{ icon('edit') }} Modifier l'imprimante{% else %}{{ icon('plus') }} Nouvelle imprimante{% endif %}</h2>
+</div>
+
+<div class="modal-body">
+<form 
+    {% if printer %}
+    hx-post="{{ url_for('printer_update', printer_id=printer.id) }}"
+    {% else %}
+    hx-post="{{ url_for('printer_create') }}"
+    {% endif %}
+    hx-target="body"
+    hx-swap="beforeend"
+    class="catalog-form">
+    
+    <div class="form-row">
+        <div class="form-group col-md-6">
+            <label for="nom">Nom *</label>
+            <input type="text" class="form-control" id="nom" name="nom" 
+                   value="{% if printer %}{{ printer.nom }}{% endif %}" 
+                   placeholder="Prusa i3 MK4" required>
+        </div>
+        
+        <div class="form-group col-md-6">
+            <label for="modele">Modèle</label>
+            <input type="text" class="form-control" id="modele" name="modele" 
+                   value="{% if printer %}{{ printer.modele or '' }}{% endif %}" 
+                   placeholder="Prusa i3 MK4">
+        </div>
+    </div>
+    
+    <div class="form-group">
+        <label for="statut">Statut *</label>
+        <select class="form-control" id="statut" name="statut" required>
+            {% for status in printer_statuses %}
+            <option value="{{ status.value }}"{% if printer and printer.statut == status %}selected{% endif %}>{% if status.value == 'disponible'%} Disponible
+                {% elif status.value == 'en_cours'%} En cours
+                {% elif status.value == 'maintenance'%} Maintenance
+                {% else %}{{ status.value.replace('_', '').title() }}
+                {% endif %}
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+    
+    <div class="form-group">
+        <label for="observations">Observations</label>
+        <textarea class="form-control" id="observations" name="observations" rows="3">{% if printer %}{{ printer.observations or '' }}{% endif %}</textarea>
+    </div>
+    
+    <div class="form-actions">
+        <button type="button" class="btn btn-ghost" onclick="closePrinterModal()">{{ icon('x') }} Annuler</button>
+        <button type="submit" class="btn btn-primary">
+            {% if printer %}{{ icon('save') }} Enregistrer{% else %}{{ icon('check') }} Créer{% endif %}
+        </button>
+    </div>
+</form>
+</div>
+
+

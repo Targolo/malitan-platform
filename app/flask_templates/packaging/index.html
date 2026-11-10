@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block page_class %}page-packaging{% endblock %}
+{% from 'macros/icons.html' import icon %}
+
+{% block title %}Emballage - Malitan 3D{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>{{ icon('gift') }} Emballage</h1>
+        <p class="page-subtitle">Liste des commandes dont toutes les lignes sont imprimées.</p>
+    </div>
+    <div class="stats-strip">
+        <div class="mini-card">
+            <p class="mini-label">Commandes</p>
+            <p class="mini-value">{{ stats.orders_count }}</p>
+        </div>
+        <div class="mini-card">
+            <p class="mini-label">Objets</p>
+            <p class="mini-value">{{ stats.lines_count }}</p>
+        </div>
+        <div class="mini-card">
+            <p class="mini-label">Poids total</p>
+            <p class="mini-value">{{ stats.total_weight }} g</p>
+        </div>
+    </div>
+</div>
+
+<div id="packaging-action-result"></div>
+
+{% if not transfer_orders and not pickup_orders and not delivery_orders and not skipped_packaging_orders %}
+<div class="empty-state">Aucune commande en attente d'emballage. </div>
+{% else %}
+
+    {% if transfer_orders %}
+    <div class="section-header">
+        <h2>{{ icon('package') }} À Transférer (Ne pas emballer) <span class="count-badge">{{ transfer_orders|length }}</span></h2>
+    </div>
+    <div class="packaging-grid">
+        {% for order in transfer_orders %}
+            {% include 'packaging/_order_card.html' %}
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if pickup_orders %}
+    <div class="section-header" {% if transfer_orders %}style="margin-top: 2rem;"{% endif %}>
+        <h2>{{ icon('home') }} Commandes Pickup <span class="count-badge">{{ pickup_orders|length }}</span></h2>
+    </div>
+    <div class="packaging-grid">
+        {% for order in pickup_orders %}
+            {% include 'packaging/_order_card.html' %}
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if delivery_orders %}
+    <div class="section-header" style="margin-top: 2rem;">
+        <h2>{{ icon('truck') }} Commandes à Livrer <span class="count-badge">{{ delivery_orders|length }}</span></h2>
+    </div>
+    <div class="packaging-grid">
+        {% for order in delivery_orders %}
+            {% include 'packaging/_order_card.html' %}
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if skipped_packaging_orders %}
+    <div class="section-header" style="margin-top: 2rem;">
+        <h2>{{ icon('fast-forward') }} Sans Emballage (Indicatif) <span class="count-badge">{{ skipped_packaging_orders|length }}</span></h2>
+    </div>
+    <div class="packaging-grid">
+        {% for order in skipped_packaging_orders %}
+            {% with readonly=True %}
+                {% include 'packaging/_order_card.html' %}
+            {% endwith %}
+        {% endfor %}
+    </div>
+    {% endif %}
+
+{% endif %}
+
+<script>
+function viewOrder(orderId) {
+    const modal = document.getElementById('order-view-modal');
+    const modalTitle = document.getElementById('order-view-modal-title');
+    const modalBody = document.getElementById('order-view-modal-body');
+    
+    if (!modal || !modalTitle || !modalBody) {
+        console.error('Modal non trouvé');
+        return;
+    }
+    
+    modalTitle.textContent = 'Détails de la commande';
+    modalBody.innerHTML = '<p>Chargement...</p>';
+    modal.style.display = 'flex';
+    
+    // Charger le formulaire détaillé de commande via HTMX
+    htmx.ajax('GET', `/orders/${orderId}/modal`, {
+        target: modalBody,
+        swap: 'innerHTML',
+        headers: {'HX-Request': 'true'}
+    }).catch(function(error) {
+        console.error('Erreur lors du chargement de la commande:', error);
+        modalBody.innerHTML = '<p style="color: red;">Erreur lors du chargement de la commande</p>';
+    });
+}
+
+function closeOrderViewModal() {
+    const modal = document.getElementById('order-view-modal');
+    if (!modal) return;
+    modal.style.display = 'none';
+    const modalBody = document.getElementById('order-view-modal-body');
+    if (modalBody) {
+        modalBody.innerHTML = '';
+    }
+}
+
+// Exposer la fonction globalement
+window.viewOrder = viewOrder;
+window.closeOrderViewModal = closeOrderViewModal;
+
+// Fermer avec Escape
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const modal = document.getElementById('order-view-modal');
+        if (modal && modal.style.display !== 'none') {
+            closeOrderViewModal();
+        }
+    }
+});
+</script>
+
+<!-- Modal pour afficher une commande -->
+<div id="order-view-modal" class="modal" style="display: none;">
+    <div class="modal-overlay" onclick="closeOrderViewModal()"></div>
+    <div class="modal-content modal-large">
+        <div class="modal-header">
+            <h2 id="order-view-modal-title">{{ icon('bag') }} Détails de la commande</h2>
+            <button class="modal-close" onclick="closeOrderViewModal()">×</button>
+        </div>
+        <div class="modal-body" id="order-view-modal-body">
+            <!-- Le contenu sera chargé via HTMX -->
+        </div>
+    </div>
+</div>
+{% endblock %}

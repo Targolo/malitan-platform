@@ -1,0 +1,96 @@
+{% from 'macros/icons.html' import icon %}
+{# Formulaire réutilisable pour créer/modifier un client #}
+<form method="POST" action="{{ action_url }}" autocomplete="off" class="compact-form" 
+      hx-post="{{ action_url }}"
+      hx-disabled-elt="find button[type='submit']"
+      {% if client_id %}
+      hx-target="#client-{{ client_id }}"
+      hx-swap="outerHTML"
+      {% else %}
+      hx-target="body"
+      hx-swap="none"
+      {% endif %}>
+    <div class="form-grid">
+        <div class="form-group">
+            <label for="nom-{{ client_id or 'new' }}">Nom *</label>
+            <input type="text" id="nom-{{ client_id or 'new' }}" name="nom" value="{{ client.nom if client else '' }}" placeholder="Cohen" required autocomplete="new-password" data-lastpass-ignore="true" data-form-type="other">
+        </div>
+        <div class="form-group">
+            <label for="prenom-{{ client_id or 'new' }}">Prénom</label>
+            <input type="text" id="prenom-{{ client_id or 'new' }}" name="prenom" value="{{ client.prenom or '' if client else '' }}" placeholder="Sarah" autocomplete="new-password" data-lastpass-ignore="true" data-form-type="other">
+        </div>
+        <div class="form-group">
+            <label for="email-{{ client_id or 'new' }}">Email</label>
+            <input type="email" id="email-{{ client_id or 'new' }}" name="email" value="{{ client.email or '' if client else '' }}" placeholder="sarah@example.com" autocomplete="new-password" data-lastpass-ignore="true" data-form-type="other">
+        </div>
+        <div class="form-group">
+            <label for="telephone-{{ client_id or 'new' }}">Téléphone</label>
+            <input type="tel" id="telephone-{{ client_id or 'new' }}" name="telephone" value="{{ client.telephone or '' if client else '' }}" placeholder="+972-50-123-4567" autocomplete="new-password" data-lastpass-ignore="true" data-form-type="other">
+        </div>
+        <div class="form-group full-width">
+            <label for="provenance-{{ client_id or 'new' }}">Provenance</label>
+            <input type="text" id="provenance-{{ client_id or 'new' }}" name="provenance" value="{{ client.provenance or '' if client else '' }}" placeholder="Facebook, Instagram, Bouche à oreille..." autocomplete="new-password" data-lastpass-ignore="true" data-form-type="other">
+        </div>
+    </div>
+    
+    <div class="form-row-compact">
+        <div class="form-group">
+            <label for="adresse-{{ client_id or 'new' }}">{{ icon('map-pin') }} Adresse de livraison</label>
+            <textarea id="adresse-{{ client_id or 'new' }}" name="adresse" placeholder="15 rue Herzl&#10;Tel Aviv&#10;Israël" autocomplete="new-password" data-lastpass-ignore="true" data-form-type="other" rows="3">{{ client.adresse or '' if client else '' }}</textarea>
+        </div>
+        <div class="form-group">
+            <label for="notes-{{ client_id or 'new' }}">{{ icon('file-text') }} Notes internes</label>
+            <textarea id="notes-{{ client_id or 'new' }}" name="notes" placeholder="Préférences, allergies, remarques..." autocomplete="new-password" data-lastpass-ignore="true" data-form-type="other" rows="3">{{ client.notes or '' if client else '' }}</textarea>
+        </div>
+    </div>
+    
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">{{ 'Enregistrer' if client else 'Créer le Client' }}</button>
+        {% if client_id and can_delete %}
+        <button type="button" class="btn btn-danger" onclick="deleteClient({{ client_id }})">{{ icon('trash') }} Supprimer</button>
+        {% endif %}
+        <button type="button" class="btn btn-ghost" onclick="if (typeof closeClientModal === 'function') closeClientModal();">{{ icon('x') }} Annuler</button>
+    </div>
+</form>
+
+{% if client_id %}
+<script>
+function deleteClient(clientId) {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer ce client ? Cette action est irréversible.')) {
+        return;
+    }
+    
+    // Fermer le modal immédiatement après confirmation
+    if (typeof window.closeClientModal === 'function') {
+        window.closeClientModal();
+    }
+    
+    // Envoyer la requête de suppression
+    fetch('/clients/' + clientId + '/delete', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        }
+    })
+    .then(function(response) {
+        if (response.ok) {
+            // Recharger la page pour mettre à jour la liste
+            setTimeout(function() {
+                window.location.reload();
+            }, 100);
+        } else {
+            // Gérer les erreurs
+            return response.json().then(function(data) {
+                throw new Error(data.error || 'Erreur lors de la suppression');
+            });
+        }
+    })
+    .catch(function(error) {
+        alert('Erreur lors de la suppression : ' + error.message);
+        // Recharger quand même pour mettre à jour la liste
+        window.location.reload();
+    });
+}
+</script>
+{% endif %}
+

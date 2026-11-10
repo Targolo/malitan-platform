@@ -1,0 +1,22 @@
+-- Migration 1.3.0 -> 1.3.1
+-- Enable Row Level Security (RLS) on all tables to secure the API
+-- This suppresses Supabase warnings and protects data exposed via PostgREST
+-- Note: The backend connects as a privileged user (postgres/service_role) which bypasses RLS,
+-- so the application will continue to work. This change blocks public access via the API.
+
+BEGIN;
+
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
+ALTER TABLE products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE colors ENABLE ROW LEVEL SECURITY;
+ALTER TABLE printers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE order_lines ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reversements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE stock_movements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE finished_goods_stock ENABLE ROW LEVEL SECURITY;
+ALTER TABLE finished_goods_movements ENABLE ROW LEVEL SECURITY;
+
+COMMIT;
+

@@ -1,0 +1,172 @@
+{% from 'macros/icons.html' import icon %}
+{# Formulaire réutilisable pour créer/modifier une ligne de commande #}
+<form method="POST" 
+      autocomplete="off" class="compact-form order-line-form-modal" 
+      {% if order_id %}
+        {% if not order_line %}
+        action="{{ url_for('order_line_add', order_id=order_id) }}"
+        hx-post="{{ url_for('order_line_add', order_id=order_id) }}"
+        {% else %}
+        action="{{ url_for('order_line_update', order_id=order_id, line_id=order_line.id) }}"
+        hx-post="{{ url_for('order_line_update', order_id=order_id, line_id=order_line.id) }}"
+        {% endif %}
+        hx-target="body"
+        hx-swap="none"
+        hx-on::after-request="if (event.detail.successful) { if (typeof window.closeOrderLineModal === 'function') window.closeOrderLineModal(); setTimeout(function() { window.location.reload(); }, 200); }"
+      {% else %}
+        onsubmit="event.preventDefault(); addTempOrderLineFromForm(new FormData(this)); return false;"
+      {% endif %}>
+    
+    <div class="form-grid">
+        <div class="form-group">
+            <label for="product_id">Produit *</label>
+            <select id="product_id" name="product_id" required autocomplete="new-password" data-lastpass-ignore="true" data-form-type="other" onchange="updatePriceFromProduct()">
+                <option value="">-- Sélectionner un produit --</option>
+                {% for product in products %}
+                <option value="{{ product.id }}" 
+                        data-price="{{ product.prix_vente_base }}"
+                        data-personalisable="{{ 'true' if product.personalisable else 'false' }}"
+                        {% if order_line and order_line.product_id == product.id %}selected{% endif %}>
+                    {{ product.nom }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group color-group">
+            <label for="color_id">Couleur *</label>
+            <div class="color-select-wrapper">
+                <select id="color_id" name="color_id" required autocomplete="new-password" data-lastpass-ignore="true" data-form-type="other">
+                    <option value="">-- Sélectionner une couleur --</option>
+                    {% for color in colors %}
+                    <option value="{{ color.id }}"
+                            data-color-hex="{{ color.code_hex or '' }}"
+                            {% if order_line and order_line.color_id == color.id %}selected{% endif %}>
+                        {{ color.nom }}
+                    </option>
+                    {% endfor %}
+                </select>
+                <span class="color-preview" id="color-preview" style="background-color: {% if order_line and order_line.color.code_hex %}{{ order_line.color.code_hex }}{% else %}transparent{% endif %};"></span>
+            </div>
+        </div>
+    </div>
+    <input type="hidden" id="quantite" name="quantite" value="1">
+    <div class="form-grid numeric-row">
+        <div class="form-group">
+            <label for="prix_vente_unitaire">Prix unitaire (₪) *</label>
+            <input type="number" id="prix_vente_unitaire" name="prix_vente_unitaire" 
+                   value="{{ order_line.prix_vente_unitaire if order_line else '' }}" 
+                   min="0" step="0.01" required autocomplete="new-password" data-lastpass-ignore="true" data-form-type="other">
+        </div>
+        <div class="form-group">
+            <label for="remise_pourcent">Remise %</label>
+            <input type="number" id="remise_pourcent" name="remise_pourcent" 
+                   value="{{ order_line.remise_pourcent or 0 if order_line else 0 }}" 
+                   min="0" max="100" step="0.1" autocomplete="new-password" data-lastpass-ignore="true" data-form-type="other">
+        </div>
+    </div>
+    
+    <div class="form-row-compact">
+        <div class="form-group" id="personnalisation-group" {% if order_line and order_line.product and order_line.product.personalisable %}{% else %}style="display: none;"{% endif %}>
+            <label for="personnalisation">Personnalisation</label>
+            <input type="text" id="personnalisation" name="personnalisation" 
+                   value="{{ order_line.personnalisation or '' if order_line else '' }}" 
+                   placeholder="Prénom ou texte..." autocomplete="new-password" data-lastpass-ignore="true" data-form-type="other">
+        </div>
+        <div class="form-group">
+            <label for="observations">Observations</label>
+            <input type="text" id="observations" name="observations" 
+                   value="{{ order_line.observations or '' if order_line else '' }}" 
+                   placeholder="Notes spécifiques..." autocomplete="new-password" data-lastpass-ignore="true" data-form-type="other">
+        </div>
+    </div>
+    
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">{{ 'Enregistrer' if order_line else 'Ajouter' }}</button>
+        <button type="button" class="btn btn-ghost" onclick="if (typeof window.closeOrderLineModal === 'function') window.closeOrderLineModal();">{{ icon('x') }} Annuler</button>
+    </div>
+</form>
+
+<script>
+function updatePriceFromProduct() {
+    const productSelect = document.getElementById('product_id');
+    const priceInput = document.getElementById('prix_vente_unitaire');
+    const personnalisationGroup = document.getElementById('personnalisation-group');
+    const personnalisationInput = document.getElementById('personnalisation');
+    
+    if (!productSelect) return;
+    
+    const selectedOption = productSelect.selectedIndex > 0 ? productSelect.options[productSelect.selectedIndex] : null;
+    if (!selectedOption) {
+        personnalisationInput.removeAttribute('required');
+        personnalisationGroup.style.display = 'none';
+        updateColorPreview();
+        return;
+    }
+    
+    const price = parseFloat(selectedOption.getAttribute('data-price'));
+    const isPersonalisable = selectedOption.getAttribute('data-personalisable') === 'true';
+    
+    if (price && !priceInput.value) {
+        priceInput.value = price;
+    }
+    
+    // Afficher/masquer le champ personnalisation selon le produit
+    if (isPersonalisable) {
+        personnalisationGroup.style.display = 'block';
+        personnalisationInput.setAttribute('required', 'required');
+    } else {
+        personnalisationGroup.style.display = personnalisationInput.value ? 'block' : 'none';
+        personnalisationInput.removeAttribute('required');
+        personnalisationInput.value = '';
+    }
+    
+    updateColorPreview();
+}
+
+function updateColorPreview() {
+    const colorSelect = document.getElementById('color_id');
+    const preview = document.getElementById('color-preview');
+    if (!colorSelect || !preview) return;
+    const selectedOption = colorSelect.options[colorSelect.selectedIndex];
+    const hex = selectedOption ? selectedOption.getAttribute('data-color-hex') : null;
+    preview.style.backgroundColor = hex || 'transparent';
+    preview.style.borderColor = hex ? hex : '#ced4da';
+}
+
+function initializeOrderLineForm() {
+    updatePriceFromProduct();
+    updateColorPreview();
+    const productSelect = document.getElementById('product_id');
+    if (productSelect) {
+        productSelect.addEventListener('change', updatePriceFromProduct);
+        productSelect.addEventListener('invalid', function(event) {
+            event.target.setCustomValidity('Veuillez sélectionner un produit');
+        });
+        productSelect.addEventListener('input', function(event) {
+            event.target.setCustomValidity('');
+        });
+    }
+    const colorSelect = document.getElementById('color_id');
+    if (colorSelect) {
+        colorSelect.addEventListener('change', updateColorPreview);
+        colorSelect.addEventListener('invalid', function(event) {
+            event.target.setCustomValidity('Veuillez sélectionner une couleur');
+        });
+        colorSelect.addEventListener('input', function(event) {
+            event.target.setCustomValidity('');
+        });
+    }
+    const personnalisationInput = document.getElementById('personnalisation');
+    if (personnalisationInput) {
+        personnalisationInput.addEventListener('invalid', function(event) {
+            event.target.setCustomValidity('La personnalisation est obligatoire pour ce produit');
+        });
+        personnalisationInput.addEventListener('input', function(event) {
+            event.target.setCustomValidity('');
+        });
+    }
+}
+
+initializeOrderLineForm();
+</script>
+

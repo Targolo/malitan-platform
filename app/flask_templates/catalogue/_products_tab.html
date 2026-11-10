@@ -1,0 +1,238 @@
+{% from 'macros/icons.html' import icon %}
+<div class="catalog-tab-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <div>
+        <h2 style="margin: 0;">{{ icon('package') }} Gestion des Produits</h2>
+        <p style="color: var(--text-secondary); margin: 5px 0 0 0;">{{ products|length }} produit(s)</p>
+    </div>
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <button type="button" class="btn btn-ghost btn-sm" id="folder3mfToggle" onclick="toggleFolder3mfPanel()">
+            {{ icon('folder') }} <span id="folder3mfToggleLabel">Dossier 3MF</span>
+        </button>
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;">
+            <input type="checkbox" 
+                   id="showInactiveProducts" 
+                   {% if show_inactive %}checked{% endif %}
+                   onchange="toggleInactiveProducts(this.checked)"
+                   style="width: 18px; height: 18px; cursor: pointer; margin: 0;">
+            <span style="font-weight: 500; font-size: var(--text-sm); color: var(--text-secondary);">Afficher les produits inactifs</span>
+        </label>
+        <button class="btn btn-primary" 
+                hx-get="{{ url_for('product_form_new') }}" 
+                hx-target="#productModalContent"
+                hx-swap="innerHTML"
+                onclick="openProductModal()">
+            {{ icon('plus') }} Nouveau Produit
+        </button>
+    </div>
+</div>
+
+<div class="folder-3mf-panel" id="folder3mfPanel" hidden>
+    <label for="folder3mfInput">Dossier des fichiers 3MF sur cet ordinateur</label>
+    <div class="folder-3mf-row">
+        <input type="text" class="form-control" id="folder3mfInput"
+               placeholder="C:\Users\...\OneDrive\3D Objects\_Malitan">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="saveFolder3mf()">{{ icon('save') }} Enregistrer</button>
+    </div>
+    <small class="form-text text-muted">Mémorisé dans ce navigateur uniquement : à régler une fois sur chaque ordinateur.</small>
+</div>
+
+<div class="products-list">
+    {% for product in products %}
+    <div class="catalog-item {% if not product.actif %}inactive{% endif %}" id="product-{{ product.id }}">
+        {% if product.image_url %}
+        {% set image_filename = product.image_url.split('/')[-1] %}
+        <img src="{{ url_for('serve_product_image', filename=image_filename) }}" 
+             alt="{{ product.nom }}" 
+             class="product-image-thumb"
+             onerror="this.style.display='none'">
+        {% endif %}
+        <div class="catalog-item-content">
+            <div class="catalog-item-header">
+                <div>
+                    <h3 class="catalog-item-title">{{ product.nom }}</h3>
+                    {% if product.description %}
+                    <p style="color: var(--text-secondary); margin: 4px 0 0 0; font-size: var(--text-sm); line-height: 1.4; max-height: 2.8em; overflow: hidden; text-overflow: ellipsis;">{{ product.description }}</p>
+                    {% endif %}
+                    <div style="margin-top: 6px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                        {% if product.product_type.value == 'partage_benefices' %}
+                        <span class="product-type-badge partage">{{ icon('bar-chart') }} Partage bénéfices</span>
+                        {% else %}
+                        <span class="product-type-badge revente">{{ icon('tag') }} Revente à Lea</span>
+                        {% endif %}
+                        
+                        {% if product.personalisable %}
+                        <span class="badge badge-info">{{ icon('edit') }} Personnalisable</span>
+                        {% endif %}
+                        
+                        {% if product.gestion_stock %}
+                        <span class="badge badge-secondary">{{ icon('package') }} Gestion stock</span>
+                        {% endif %}
+                        
+                        {% if not product.actif %}
+                        <span class="badge badge-secondary">{{ icon('x') }} Inactif</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="catalog-item-actions">
+                    <button class="btn btn-secondary btn-sm" 
+                            hx-get="{{ url_for('product_form_edit', product_id=product.id) }}" 
+                            hx-target="#productModalContent"
+                            hx-swap="innerHTML"
+                            onclick="openProductModal()">
+                        {{ icon('edit') }} Modifier
+                    </button>
+                </div>
+            </div>
+        
+        <div class="catalog-item-body">
+            <table class="product-info-table">
+                <tr class="product-info-labels">
+                    <td>P.V.</td>
+                    {% if product.product_type.value == 'partage_benefices' %}
+                    <td>P.R. David</td>
+                    <td>P.R. Lea</td>
+                    <td>Bénéfice</td>
+                    {% else %}
+                    <td>P.V. Lea</td>
+                    <td>P.R. David</td>
+                    <td>P.R. Lea</td>
+                    {% endif %}
+                    <td>Poids</td>
+                    <td>Temps</td>
+                    {% if product.gestion_stock %}
+                    <td>Alerte stock</td>
+                    {% endif %}
+                </tr>
+                <tr class="product-info-values">
+                    <td>{{ product.prix_vente_base|int }} ₪</td>
+                    {% if product.product_type.value == 'partage_benefices' %}
+                    <td>{{ product.prix_revient_david|int }} ₪</td>
+                    <td>{{ product.prix_revient_lea|int }} ₪</td>
+                    <td style="color: var(--tone-green-fg); font-weight: 600;">
+                        {{ (product.prix_vente_base - product.prix_revient_david - product.prix_revient_lea)|int }} ₪
+                    </td>
+                    {% else %}
+                    <td style="color: var(--tone-green-fg); font-weight: 600;">{{ product.prix_vente_lea|int }} ₪</td>
+                    <td>{{ product.prix_revient_david|int }} ₪</td>
+                    <td>{{ product.prix_revient_lea|int }} ₪</td>
+                    {% endif %}
+                    <td>{{ product.poids_grammes|int }}g</td>
+                    <td>{{ (product.temps_impression_minutes / 60)|round(1) }}h</td>
+                    {% if product.gestion_stock %}
+                    <td>{{ product.alerte_stock }}</td>
+                    {% endif %}
+                </tr>
+            </table>
+        </div>
+        
+            {% if product.observations %}
+            <div style="margin-top: 8px; padding: 8px 10px; background: var(--bg); border-radius: 4px; font-size: var(--text-sm); line-height: 1.4;">
+                <strong>{{ icon('file-text') }} Observations:</strong> {{ product.observations }}
+            </div>
+            {% endif %}
+
+            {% if product.liens_tinkercad_list or product.fichiers_3mf_list %}
+            <div class="product-design-links">
+                {% for url in product.liens_tinkercad_list %}
+                <a class="design-link" href="{{ url }}" target="_blank" rel="noopener">
+                    {{ icon('arrow-up-right') }} Tinkercad{% if product.liens_tinkercad_list|length > 1 %} {{ loop.index }}{% endif %}
+                </a>
+                {% endfor %}
+                {% for fichier in product.fichiers_3mf_list %}
+                <span class="design-file">
+                    {{ icon('folder') }} <span class="design-file-name">{{ fichier }}</span>
+                    <button type="button" class="btn btn-ghost btn-sm" data-file="{{ fichier }}" onclick="copy3mfPath(this)">
+                        {{ icon('clipboard') }} <span>Copier le chemin</span>
+                    </button>
+                </span>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+    
+    {% if not products %}
+    <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
+        <p>Aucun produit trouvé</p>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function toggleInactiveProducts(show) {
+    const url = new URL(window.location);
+    if (show) {
+        url.searchParams.set('show_inactive', 'true');
+    } else {
+        url.searchParams.delete('show_inactive');
+    }
+    window.location.href = url.toString();
+}
+
+// Per-machine 3MF folder: kept in this browser only (each computer has its own OneDrive path)
+const FOLDER_3MF_KEY = 'malitan.dossier3mf';  // gitleaks:allow (localStorage key name, not a secret)
+
+function getFolder3mf() {
+    try { return localStorage.getItem(FOLDER_3MF_KEY) || ''; } catch (e) { return ''; }
+}
+
+function refreshFolder3mfLabel() {
+    const label = document.getElementById('folder3mfToggleLabel');
+    if (label) label.textContent = getFolder3mf() ? 'Dossier 3MF' : 'Dossier 3MF : à régler';
+}
+
+function toggleFolder3mfPanel(forceOpen) {
+    const panel = document.getElementById('folder3mfPanel');
+    const input = document.getElementById('folder3mfInput');
+    panel.hidden = forceOpen ? false : !panel.hidden;
+    if (!panel.hidden) {
+        input.value = getFolder3mf();
+        input.focus();
+    }
+}
+
+function saveFolder3mf() {
+    const value = document.getElementById('folder3mfInput').value.trim().replace(/[\\/]+$/, '');
+    try {
+        if (value) localStorage.setItem(FOLDER_3MF_KEY, value);
+        else localStorage.removeItem(FOLDER_3MF_KEY);
+    } catch (e) {
+        window.showErrorToast('Impossible de mémoriser le dossier dans ce navigateur.');
+        return;
+    }
+    document.getElementById('folder3mfPanel').hidden = true;
+    refreshFolder3mfLabel();
+}
+
+function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text);
+    const area = document.createElement('textarea');
+    area.value = text;
+    document.body.appendChild(area);
+    area.select();
+    const ok = document.execCommand('copy');
+    area.remove();
+    return ok ? Promise.resolve() : Promise.reject(new Error('copy failed'));
+}
+
+function copy3mfPath(button) {
+    const folder = getFolder3mf();
+    if (!folder) {
+        window.showErrorToast('Réglez d\'abord le dossier 3MF de cet ordinateur.');
+        toggleFolder3mfPanel(true);
+        return;
+    }
+    const separator = folder.includes('\\') ? '\\' : '/';
+    const label = button.querySelector('span');
+    copyText(folder + separator + button.dataset.file).then(function() {
+        label.textContent = 'Copié';
+        setTimeout(function() { label.textContent = 'Copier le chemin'; }, 2000);
+    }).catch(function() {
+        window.showErrorToast('Copie impossible : le navigateur a refusé l\'accès au presse-papiers.');
+    });
+}
+
+refreshFolder3mfLabel();
+</script>
+

@@ -1,0 +1,324 @@
+{% extends "base.html" %}
+{% block page_class %}page-finances{% endblock %}
+{% from 'macros/icons.html' import icon %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block title %}Finances - Malitan 3D{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>{{ icon('dollar') }} Finances</h1>
+        <p class="page-subtitle">Reversements, bénéfices et statistiques par période</p>
+    </div>
+</div>
+
+<!-- Table 5: Solde à reverser -->
+<div class="solde-card">
+    <div class="solde-item">
+        <h3>Total à reverser</h3>
+        <p class="value">{{ total_reversement|int }} ₪</p>
+    </div>
+    <div class="solde-item">
+        <h3>Déjà reversé</h3>
+        <p class="value">{{ total_deja_reverse|int }} ₪</p>
+    </div>
+    <div class="solde-item highlight">
+        <h3>Reste à reverser</h3>
+        <p class="value">{{ solde_restant|int }} ₪</p>
+    </div>
+</div>
+
+<!-- Reversement Form -->
+<div class="reversement-form-card">
+    <h2>{{ icon('send') }} Enregistrer un reversement</h2>
+    <form class="reversement-form"
+          hx-post="{{ url_for('finances_create_reversement') }}"
+          hx-target="#action-result"
+          hx-swap="innerHTML">
+        <div class="form-group">
+            <label for="montant">Montant (₪)</label>
+            <input type="number" id="montant" name="montant" step="0.01" min="0.01" 
+                   placeholder="{{ solde_restant|int }}" required>
+        </div>
+        <div class="form-group">
+            <label for="commentaire">Commentaire (optionnel)</label>
+            <input type="text" id="commentaire" name="commentaire" 
+                   placeholder="Ex: Virement du 16/12...">
+        </div>
+        <button type="submit" class="btn btn-primary">{{ icon('check') }} Enregistrer</button>
+    </form>
+</div>
+
+<div id="action-result"></div>
+
+<!-- Statistics -->
+<div class="card">
+    <div class="card-header">
+        <h2>{{ icon('trending-up') }} Statistiques ({{ stats_filters.start }} → {{ stats_filters.end }})</h2>
+        <form method="get" class="stats-form">
+            <label>
+                Début
+                <input type="date" name="stats_start" value="{{ stats_filters.start }}" onchange="this.form.submit()">
+            </label>
+            <label>
+                Fin
+                <input type="date" name="stats_end" value="{{ stats_filters.end }}" onchange="this.form.submit()">
+            </label>
+        </form>
+    </div>
+    <div class="stats-grid">
+        <div>
+            <p class="mini-label">Chiffre d'affaires</p>
+            <p class="mini-value">{{ stats.total_ventes|int }} ₪</p>
+            <p class="mini-label">Commandes livrées</p>
+            <p class="mini-value">{{ stats.nb_commandes_livrees }}</p>
+        </div>
+        <div>
+            <p class="mini-label">Bénéfice total</p>
+            <p class="mini-value">{{ stats.total_benefice|int }} ₪</p>
+            <p class="mini-label">Bénéfice moyen / objet</p>
+            <p class="mini-value">{{ stats.benefice_moyen_par_ligne|int }} ₪</p>
+        </div>
+        <div class="chart-wrapper">
+            <canvas id="finances-share-chart"
+                    data-david="{{ stats.total_david or 0 }}"
+                    data-lea="{{ stats.total_lea or 0 }}"></canvas>
+        </div>
+    </div>
+</div>
+
+
+<!-- Table 1: Bénéfices -->
+<div class="card">
+    <h3 class="section-title">{{ icon('bar-chart') }} Tableau 1 : Bénéfices (Partage des bénéfices)</h3>
+    
+    {% if not benefices %}
+    <div class="empty-state">Aucune vente livrée pour le moment.</div>
+    {% else %}
+    <table class="finance-table">
+        <thead>
+            <tr>
+                <th>Produit</th>
+                <th>Prix vente (moy)</th>
+                <th>PR David</th>
+                <th>PR Léa</th>
+                <th>Qté</th>
+                <th>Bénéf/pièce</th>
+                <th>Coût total</th>
+                <th>Revenu total</th>
+                <th>Bénéfice total</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in benefices %}
+            <tr>
+                <td>{{ row.nom }}</td>
+                <td>{{ row.prix_vente_moy|round(1) }}</td>
+                <td>{{ row.prix_revient_david }}</td>
+                <td>{{ row.prix_revient_lea }}</td>
+                <td>{{ row.quantite }}</td>
+                <td>{{ row.benefice_par_piece|round(1) }}</td>
+                <td>{{ row.cout_total|int }}</td>
+                <td>{{ row.revenu_total|int }}</td>
+                <td>{{ row.benefice_total|int }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr>
+                <td>TOTAL</td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td>{{ benefices_totals.quantite }}</td>
+                <td></td>
+                <td>{{ benefices_totals.cout_total|int }}</td>
+                <td>{{ benefices_totals.revenu_total|int }}</td>
+                <td class="highlight">{{ benefices_totals.benefice_total|int }} ₪</td>
+            </tr>
+        </tfoot>
+    </table>
+    {% endif %}
+</div>
+
+<!-- Table 2: Rétrocessions David -->
+<div class="card">
+    <h3 class="section-title">{{ icon('dollar') }} Tableau 2 : Rétrocessions David</h3>
+    
+    {% if not retrocessions_david %}
+    <div class="empty-state">Aucune rétrocession pour le moment.</div>
+    {% else %}
+    <table class="finance-table">
+        <thead>
+            <tr>
+                <th>Produit</th>
+                <th>Prix revient total</th>
+                <th>Part bénéfice</th>
+                <th>Reversement</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in retrocessions_david %}
+            <tr>
+                <td>{{ row.nom }}</td>
+                <td>{{ row.prix_revient_total|int }}</td>
+                <td>{{ row.part_benefice|int }}</td>
+                <td>{{ row.reversement|int }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr>
+                <td>TOTAL</td>
+                <td>{{ retrocessions_david_totals.prix_revient_total|int }}</td>
+                <td>{{ retrocessions_david_totals.part_benefice|int }}</td>
+                <td class="highlight">{{ retrocessions_david_totals.reversement|int }} ₪</td>
+            </tr>
+        </tfoot>
+    </table>
+    {% endif %}
+</div>
+
+<!-- Table 3: Bénéfice Léa -->
+<div class="card">
+    <h3 class="section-title">{{ icon('user') }} Tableau 3 : Bénéfice Léa</h3>
+    
+    {% if not benefice_lea %}
+    <div class="empty-state">Aucun bénéfice pour le moment.</div>
+    {% else %}
+    <table class="finance-table">
+        <thead>
+            <tr>
+                <th>Produit</th>
+                <th>Prix revient total</th>
+                <th>Part bénéfice</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in benefice_lea %}
+            <tr>
+                <td>{{ row.nom }}</td>
+                <td>{{ row.prix_revient_total|int }}</td>
+                <td>{{ row.part_benefice|int }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr>
+                <td>TOTAL</td>
+                <td>{{ benefice_lea_totals.prix_revient_total|int }}</td>
+                <td class="highlight">{{ benefice_lea_totals.part_benefice|int }} ₪</td>
+            </tr>
+        </tfoot>
+    </table>
+    {% endif %}
+</div>
+
+<!-- Table 4: Reventes Léa -->
+{% if revente_lea %}
+<div class="card">
+    <h3 class="section-title">{{ icon('tag') }} Tableau 4 : Reventes Léa (prix fixe)</h3>
+    
+    <table class="finance-table">
+        <thead>
+            <tr>
+                <th>Produit</th>
+                <th>Prix revient David</th>
+                <th>Qté</th>
+                <th>Reversement</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in revente_lea %}
+            <tr>
+                <td>{{ row.nom }}</td>
+                <td>{{ row.prix_revient_david }}</td>
+                <td>{{ row.quantite }}</td>
+                <td>{{ row.reversement|int }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr>
+                <td>TOTAL</td>
+                <td></td>
+                <td>{{ revente_lea_totals.quantite }}</td>
+                <td class="highlight">{{ revente_lea_totals.reversement|int }} ₪</td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+{% endif %}
+
+<!-- History -->
+<div class="card">
+    <div class="card-header">
+        <h2>{{ icon('clock') }} Historique des reversements</h2>
+    </div>
+    {% if not history %}
+    <div class="empty-state">Pas encore de reversement enregistré.</div>
+    {% else %}
+    <table class="history-table">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Montant</th>
+                <th>Commentaire</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for rev in history %}
+            <tr>
+                <td>{{ rev.date_reversement.strftime('%d/%m/%Y') }}</td>
+                <td class="amount">{{ rev.montant|int }} ₪</td>
+                <td class="comment">{{ rev.commentaire or '-' }}</td>
+                <td>
+                    <button class="delete-btn" 
+                            hx-delete="{{ url_for('finances_delete_reversement', reversement_id=rev.id) }}"
+                            hx-target="#action-result"
+                            hx-confirm="Supprimer ce reversement de {{ rev.montant|int }} ₪ ?"
+                            title="Supprimer">
+                        {{ icon('trash') }}
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function() {
+    const chartCanvas = document.getElementById('finances-share-chart');
+    if (chartCanvas && window.Chart) {
+        const david = Number(chartCanvas.dataset.david || 0);
+        const lea = Number(chartCanvas.dataset.lea || 0);
+        new Chart(chartCanvas, {
+            type: 'doughnut',
+            data: {
+                labels: ['David', 'Lea'],
+                datasets: [{
+                    data: [david, lea],
+                    backgroundColor: ['#ff6b6b', '#4ecdc4']
+                }]
+            },
+            options: {
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+    }
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,538 @@
+{% from 'macros/badges.html' import fab_status %}
+{% from 'macros/icons.html' import icon %}
+{# Formulaire réutilisable pour créer/modifier une commande #}
+<form method="POST" 
+      autocomplete="off" class="order-form" 
+      id="order-form"
+      {% if not order %}
+      action="{{ url_for('order_create') }}"
+      hx-post="{{ url_for('order_create') }}"
+      {% else %}
+      action="{{ url_for('order_update', order_id=order.id) }}"
+      hx-post="{{ url_for('order_update', order_id=order.id) }}"
+      {% endif %}
+      hx-target="body"
+      hx-swap="none"
+      hx-on::after-request="if (event.detail.successful) { if (typeof window.closeOrderModal === 'function') window.closeOrderModal(); setTimeout(function() { window.location.reload(); }, 200); }">
+    
+    <input type="hidden" name="order_id" value="{{ order.id if order else '' }}">
+    
+    <div class="form-section">
+        <h3><span class="step-num">1</span> Client</h3>
+        {# Client fixe : choisi à l'étape précédente (orders/_client_picker.html) pour une nouvelle commande, celui de la commande en modification #}
+        <input type="hidden" name="client_id" value="{{ client.id }}">
+        <p class="order-client-label">
+            <strong>{{ client.full_name }}</strong>
+            {% if client.email or client.telephone %}<span>{{ client.email or client.telephone }}</span>{% endif %}
+        </p>
+    </div>
+    
+    <div class="form-section">
+        <h3><span class="step-num">2</span> Livraison</h3>
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="mode_livraison">Mode de livraison *</label>
+            <select id="mode_livraison" name="mode_livraison" required autocomplete="new-password" data-lastpass-ignore="true" data-form-type="other" onchange="toggleDeliveryAddress(true)">
+                    {% for mode in delivery_modes %}
+                    <option value="{{ mode.value }}" {% if order and order.mode_livraison == mode %}selected{% elif not order and mode.value == 'livraison' %}selected{% endif %}>
+                        {{ mode.value.title() }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="date_livraison_prevue">Date de livraison prévue</label>
+                {# Le champ date natif se vide case par case : la croix l'efface d'un coup #}
+                <div class="date-clear-wrapper">
+                    <input type="date" id="date_livraison_prevue" name="date_livraison_prevue" 
+                           value="{{ order.date_livraison_prevue.strftime('%Y-%m-%d') if order and order.date_livraison_prevue else '' }}"
+                           autocomplete="new-password" data-lastpass-ignore="true" data-form-type="other"
+                           oninput="this.nextElementSibling.hidden = !this.value">
+                    <button type="button" class="date-clear" title="Effacer la date" aria-label="Effacer la date"
+                            {% if not (order and order.date_livraison_prevue) %}hidden{% endif %}
+                            onclick="const input = this.previousElementSibling; input.value = ''; this.hidden = true; input.focus();">{{ icon('x') }}</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="form-group full-width" id="adresse-livraison-group" style="display: {% if order and order.mode_livraison.value == 'livraison' or not order %}block{% else %}none{% endif %};">
+            <label for="adresse_livraison">{{ icon('map-pin') }} Adresse de livraison</label>
+            <textarea id="adresse_livraison" name="adresse_livraison" rows="3" 
+                      placeholder="15 rue Herzl&#10;Tel Aviv&#10;Israël"
+                      autocomplete="new-password" data-lastpass-ignore="true" data-form-type="other">{{ (order.adresse_livraison if order else client.adresse) or '' }}</textarea>
+            <div id="delivery-address-error" class="input-error-message" role="alert" aria-live="assertive" style="display: none;"></div>
+        </div>
+        
+        <div class="form-group full-width">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="skip_packaging" name="skip_packaging"
+                       {% if order and order.ne_pas_emballer %}checked{% endif %}
+                       value="1"
+                       style="width: 20px; height: 20px; cursor: pointer; margin: 0; flex-shrink: 0;">
+                <label for="skip_packaging" style="cursor: pointer; margin: 0; display: flex; align-items: center; gap: 8px;" title="Si cette option est activée, la commande passera automatiquement en statut 'Prêt à livrer' dès que toutes les lignes seront imprimées, sans passer par l'étape d'emballage.">
+                    <span style="font-weight: 500; font-size: var(--text-sm);">Ne pas emballer</span>
+                    <span class="info-tooltip">ⓘ</span>
+                </label>
+            </div>
+        </div>
+    </div>
+    
+    <div class="form-section">
+        <h3><span class="step-num">3</span> Lignes de commande</h3>
+        <div id="order-lines-container">
+            {% if order %}
+                {# Mode édition : affichage en lecture seule #}
+                {% for line in order.order_lines %}
+                <div class="order-line-display" data-line-id="{{ line.id }}">
+                    <span class="line-product-name" title="{{ line.product.nom }}">{{ line.product.nom }}</span>
+                    {% if line.color and line.color.code_hex %}
+                    <span class="line-color-badge" style="background-color: {{ line.color.code_hex }};"></span>
+                    {% endif %}
+                    <span class="line-color" title="{{ line.color.nom if line.color else '—' }}">{{ line.color.nom if line.color else '—' }}</span>
+                    {{ fab_status(line.statut_fabrication) }}
+                    <span class="line-price">{{ "%.0f"|format(line.prix_vente_total) }} ₪</span>
+                    {% if line.personnalisation %}<span class="line-personalization" title="{{ line.personnalisation }}">{{ icon('edit') }} {{ line.personnalisation }}</span>{% endif %}
+                    {% if line.observations %}<span class="line-observations" title="{{ line.observations }}">{{ icon('message') }}</span>{% endif %}
+                    <span class="line-row-actions">
+                    {% if line.statut_fabrication.value != 'imprime' and line.statut_fabrication.value != 'livre_lea' %}
+                    <button type="button" class="btn btn-ghost btn-sm" title="Modifier la ligne" aria-label="Modifier la ligne" onclick="openLineModalForEdit({{ order.id }}, {{ line.id }})">{{ icon('edit') }}</button>
+                    <button type="button" class="btn btn-danger btn-sm" title="Supprimer la ligne" aria-label="Supprimer la ligne" onclick="removeOrderLine({{ order.id }}, {{ line.id }})">{{ icon('trash') }}</button>
+                    {% else %}
+                    <span class="line-readonly-message" title="Ligne imprimée - non modifiable">{{ icon('lock') }}</span>
+                    {% endif %}
+                    </span>
+                </div>
+                {% endfor %}
+            {% else %}
+                {# Mode création : lignes temporaires dans le formulaire #}
+                <div id="temp-lines-container"></div>
+                <div id="order-total-display" style="margin-top: 1rem; padding: 1rem; background: #e7f3ff; border-radius: 4px; display: none;">
+                    <strong>Total de la commande: <span id="order-total-amount">0</span> ₪</strong>
+                </div>
+            {% endif %}
+        </div>
+        
+        <div class="line-actions-row">
+            {% if not order %}
+            <button type="button" class="btn btn-secondary btn-add-line" onclick="openLineModalForCreate()">{{ icon('plus') }} Ajouter une ligne</button>
+            {% elif order and order.statut.value == 'en_attente' %}
+            <button type="button" class="btn btn-secondary btn-add-line" onclick="openLineModalForExistingAdd({{ order.id }})">{{ icon('plus') }} Ajouter une ligne</button>
+            {% endif %}
+            <div id="line-error-message" class="line-error-message" role="alert" aria-live="assertive">Veuillez ajouter au moins une ligne de commande.</div>
+        </div>
+    </div>
+    
+    <div class="form-section">
+        <h3><span class="step-num">4</span> Observations</h3>
+        <div class="form-group">
+            <label for="observations" class="sr-only">Observations</label>
+            <textarea id="observations" name="observations" rows="3" 
+                      placeholder="Notes générales sur la commande..."
+                      autocomplete="new-password" data-lastpass-ignore="true" data-form-type="other">{% if order and order.observations %}{{ order.observations }}{% endif %}</textarea>
+        </div>
+    </div>
+    
+    <div class="form-actions">
+        {% if not order %}
+        <button type="submit" name="status" value="en_attente" class="btn btn-primary">{{ icon('check') }} Créer (Non payée)</button>
+        <button type="submit" name="status" value="paye" class="btn btn-secondary">{{ icon('credit-card') }} Créer (Payée)</button>
+        {% else %}
+        <button type="submit" class="btn btn-primary">{{ icon('save') }} Enregistrer</button>
+        {% endif %}
+        <button type="button" class="btn btn-ghost" onclick="if (typeof window.closeOrderModal === 'function') window.closeOrderModal();">{{ icon('x') }} Annuler</button>
+    </div>
+</form>
+
+<script>
+let tempLineCounter = 0;
+const tempLines = [];
+
+function escapeHtml(value) {
+    if (!value) {
+        return '';
+    }
+    return value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function showLineError(message) {
+    const error = document.getElementById('line-error-message');
+    if (error) {
+        error.textContent = message;
+        error.style.display = 'inline-flex';
+    }
+}
+
+function hideLineError() {
+    const error = document.getElementById('line-error-message');
+    if (error) {
+        error.style.display = 'none';
+    }
+}
+
+function showDeliveryAddressError(message) {
+    const error = document.getElementById('delivery-address-error');
+    const addressField = document.getElementById('adresse_livraison');
+    if (error) {
+        error.textContent = message;
+        error.style.display = 'block';
+    }
+    if (addressField) {
+        addressField.classList.add('input-error');
+    }
+}
+
+function hideDeliveryAddressError() {
+    const error = document.getElementById('delivery-address-error');
+    const addressField = document.getElementById('adresse_livraison');
+    if (error) {
+        error.textContent = '';
+        error.style.display = 'none';
+    }
+    if (addressField) {
+        addressField.classList.remove('input-error');
+    }
+}
+
+function toggleDeliveryAddress(showValidation = true) {
+    const modeSelect = document.getElementById('mode_livraison');
+    const addressGroup = document.getElementById('adresse-livraison-group');
+    if (modeSelect.value === 'livraison') {
+        addressGroup.style.display = 'block';
+        const addressField = document.getElementById('adresse_livraison');
+        if (showValidation && addressField && !addressField.value.trim()) {
+            showDeliveryAddressError('L’adresse de livraison est obligatoire pour une commande livrée.');
+        }
+    } else {
+        addressGroup.style.display = 'none';
+        hideDeliveryAddressError();
+    }
+}
+
+function openLineModal(url, titleText) {
+    const modal = document.getElementById('order-line-modal');
+    const modalTitle = document.getElementById('order-line-modal-title');
+    const modalBody = document.getElementById('order-line-modal-body');
+    
+    if (!modal || !modalTitle || !modalBody) {
+        console.error('order-line-modal introuvable');
+        alert('Erreur : impossible d\'ouvrir le formulaire de ligne.');
+        return;
+    }
+    
+    modalTitle.textContent = titleText;
+    modalBody.innerHTML = '<p>Chargement...</p>';
+    modal.style.display = 'flex';
+    modal.style.zIndex = '10000';
+    
+    htmx.ajax('GET', url, {
+        target: modalBody,
+        swap: 'innerHTML',
+        headers: {'HX-Request': 'true'}
+    }).catch(function(error) {
+        console.error('Erreur lors du chargement du formulaire:', error);
+        modalBody.innerHTML = '<p style="color: red;">Erreur lors du chargement du formulaire</p>';
+    });
+}
+
+function openLineModalForCreate() {
+    openLineModal('{{ url_for("temp_order_line_form") }}', 'Ajouter une ligne');
+}
+
+function openLineModalForExistingAdd(orderId) {
+    openLineModal(`/orders/${orderId}/lines/form/new`, 'Ajouter une ligne');
+}
+
+function openLineModalForEdit(orderId, lineId) {
+    openLineModal(`/orders/${orderId}/lines/${lineId}/form`, 'Modifier la ligne');
+}
+
+function addTempOrderLineFromForm(formData) {
+    const container = document.getElementById('temp-lines-container');
+    const lineId = tempLineCounter++;
+    
+    const productId = formData.get('product_id');
+    const colorId = formData.get('color_id');
+    const quantite = formData.get('quantite') || '1';
+    const prixVenteUnitaire = formData.get('prix_vente_unitaire') || '0';
+    const remisePourcent = formData.get('remise_pourcent') || '0';
+    const personnalisation = formData.get('personnalisation') || '';
+    const observations = formData.get('observations') || '';
+    const personnalisationSafe = escapeHtml(personnalisation);
+    const observationsSafe = escapeHtml(observations);
+    
+    // Récupérer les noms depuis les options sélectionnées
+    const productSelect = document.querySelector('#order-line-modal-body #product_id');
+    const colorSelect = document.querySelector('#order-line-modal-body #color_id');
+    const productName = productSelect ? productSelect.options[productSelect.selectedIndex].text : '';
+    const colorName = colorSelect ? colorSelect.options[colorSelect.selectedIndex].text : '';
+    const productNameSafe = escapeHtml(productName);
+    const colorNameSafe = escapeHtml(colorName);
+    const colorHex = colorSelect ? colorSelect.options[colorSelect.selectedIndex].getAttribute('data-color-hex') : '';
+    const isPersonalisable = productSelect && productSelect.options[productSelect.selectedIndex].getAttribute('data-personalisable') === 'true';
+
+    if (!productId || !colorId) {
+        alert('Veuillez sélectionner un produit et une couleur.');
+        return;
+    }
+
+    if (isPersonalisable && !personnalisation.trim()) {
+        alert('La personnalisation est obligatoire pour ce produit.');
+        return;
+    }
+    
+    const totalPrice = (parseFloat(prixVenteUnitaire || 0) * (1 - parseFloat(remisePourcent || 0) / 100) * parseFloat(quantite || 0)).toFixed(2);
+    const lineHtml = `
+        <div class="order-line-display" data-temp-line-id="${lineId}">
+            <input type="hidden" name="lines[${lineId}][product_id]" value="${productId}">
+            <input type="hidden" name="lines[${lineId}][color_id]" value="${colorId}">
+            <input type="hidden" name="lines[${lineId}][quantite]" value="${quantite}">
+            <input type="hidden" name="lines[${lineId}][prix_vente_unitaire]" value="${prixVenteUnitaire}">
+            <input type="hidden" name="lines[${lineId}][remise_pourcent]" value="${remisePourcent}">
+            <input type="hidden" name="lines[${lineId}][personnalisation]" value="${personnalisationSafe}">
+            <input type="hidden" name="lines[${lineId}][observations]" value="${observationsSafe}">
+            <span class="line-product-name" title="${productNameSafe}">${productNameSafe}</span>
+            ${colorHex ? `<span class="line-color-badge" style="background-color: ${colorHex};"></span>` : ''}
+            <span class="line-color" title="${colorNameSafe}">${colorNameSafe}</span>
+            <span class="tag tone-neutral">File d'attente</span>
+            <span class="line-price">${totalPrice} ₪</span>
+            ${personnalisation ? `<span class="line-personalization" title="${personnalisationSafe}">{{ icon('edit') }} ${personnalisationSafe}</span>` : ''}
+            ${observations ? `<span class="line-observations" title="${observationsSafe}">{{ icon('message') }}</span>` : ''}
+            <span class="line-row-actions"><button type="button" class="btn btn-danger btn-sm" title="Supprimer la ligne" aria-label="Supprimer la ligne" onclick="removeTempOrderLine(${lineId})">{{ icon('trash') }}</button></span>
+        </div>
+    `;
+    container.insertAdjacentHTML('beforeend', lineHtml);
+    tempLines.push(lineId);
+    updateOrderTotal();
+    hideLineError();
+    closeLineModal();
+}
+
+function removeTempOrderLine(lineId) {
+    const lineElement = document.querySelector(`[data-temp-line-id="${lineId}"]`);
+    if (lineElement) {
+        lineElement.remove();
+        const index = tempLines.indexOf(lineId);
+        if (index > -1) {
+            tempLines.splice(index, 1);
+        }
+        updateOrderTotal();
+        if (tempLines.length === 0) {
+            showLineError('Veuillez ajouter au moins une ligne de commande.');
+        }
+    }
+}
+
+function updateTempLinePrice(selectElement, lineId) {
+    const selectedOption = selectElement.options[selectElement.selectedIndex];
+    if (selectedOption && selectedOption.value) {
+        const price = parseFloat(selectedOption.getAttribute('data-price')) || 0;
+        const priceInput = document.querySelector(`[data-temp-line-id="${lineId}"] input[name*="[prix_vente_unitaire]"]`);
+        if (priceInput && !priceInput.value) {
+            priceInput.value = price;
+            updateTempLineTotal(lineId);
+        }
+    }
+}
+
+function updateTempLineTotal(lineId) {
+    updateOrderTotal();
+}
+
+function updateOrderTotal() {
+    const totalDisplay = document.getElementById('order-total-display');
+    const totalAmount = document.getElementById('order-total-amount');
+    let total = 0;
+    
+    document.querySelectorAll('[data-temp-line-id]').forEach(function(lineElement) {
+        const quantiteInput = lineElement.querySelector('input[name*="[quantite]"]');
+        const prixUnitaireInput = lineElement.querySelector('input[name*="[prix_vente_unitaire]"]');
+        const remiseInput = lineElement.querySelector('input[name*="[remise_pourcent]"]');
+        
+        if (quantiteInput && prixUnitaireInput && remiseInput) {
+            const quantite = parseFloat(quantiteInput.value) || 0;
+            const prixUnitaire = parseFloat(prixUnitaireInput.value) || 0;
+            const remise = parseFloat(remiseInput.value) || 0;
+            const prixFinal = prixUnitaire * (1 - remise / 100);
+            total += prixFinal * quantite;
+        }
+    });
+    
+    if (total > 0) {
+        totalDisplay.style.display = 'block';
+        totalAmount.textContent = total.toFixed(2);
+    } else {
+        totalDisplay.style.display = 'none';
+    }
+    
+    if (getTempLineCount() > 0) {
+        hideLineError();
+    }
+}
+
+function openLineModal(url, titleText) {
+    const modal = document.getElementById('order-line-modal');
+    const modalTitle = document.getElementById('order-line-modal-title');
+    const modalBody = document.getElementById('order-line-modal-body');
+    
+    if (!modal || !modalTitle || !modalBody) {
+        console.error('order-line-modal introuvable');
+        alert('Erreur : impossible d\'ouvrir le formulaire de ligne.');
+        return;
+    }
+    
+    modalTitle.textContent = titleText;
+    modalBody.innerHTML = '<p>Chargement...</p>';
+    modal.style.display = 'flex';
+    modal.style.zIndex = '10000';
+    
+    htmx.ajax('GET', url, {
+        target: modalBody,
+        swap: 'innerHTML',
+        headers: {'HX-Request': 'true'}
+    }).catch(function(error) {
+        console.error('Erreur lors du chargement du formulaire:', error);
+        modalBody.innerHTML = '<p style="color: red;">Erreur lors du chargement du formulaire</p>';
+    });
+}
+
+function openLineModalForCreate() {
+    openLineModal('{{ url_for("temp_order_line_form") }}', 'Ajouter une ligne');
+}
+
+function openLineModalForExistingAdd(orderId) {
+    openLineModal(`/orders/${orderId}/lines/form/new`, 'Ajouter une ligne');
+}
+
+function openLineModalForEdit(orderId, lineId) {
+    openLineModal(`/orders/${orderId}/lines/${lineId}/form`, 'Modifier la ligne');
+}
+
+function closeLineModal() {
+    const modal = document.getElementById('order-line-modal');
+    if (!modal) {
+        return;
+    }
+    modal.style.display = 'none';
+    const modalBody = document.getElementById('order-line-modal-body');
+    if (modalBody) {
+        modalBody.innerHTML = '';
+    }
+}
+
+function getTempLineCount() {
+    return document.querySelectorAll('#temp-lines-container .order-line-display').length;
+}
+
+function validateOrderBeforeSubmit(form) {
+    const isEdit = form.dataset.isEdit === 'true';
+    
+    if (!isEdit) {
+        if (getTempLineCount() === 0) {
+            showLineError('Veuillez ajouter au moins une ligne de commande.');
+            const addLineButton = document.querySelector('.btn-add-line');
+            if (addLineButton) {
+                addLineButton.focus();
+            }
+            return false;
+        }
+    }
+    hideLineError();
+    
+    const modeSelect = document.getElementById('mode_livraison');
+    const addressField = document.getElementById('adresse_livraison');
+    if (modeSelect && modeSelect.value === 'livraison') {
+        const address = addressField ? addressField.value.trim() : '';
+        if (!address) {
+            showDeliveryAddressError('L’adresse de livraison est obligatoire pour une commande livrée.');
+            if (addressField) {
+                addressField.focus();
+            }
+            return false;
+        }
+        hideDeliveryAddressError();
+    } else {
+        hideDeliveryAddressError();
+    }
+    return true;
+}
+
+function removeOrderLine(orderId, lineId) {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer cette ligne ?')) {
+        return;
+    }
+    
+    fetch(`/orders/${orderId}/lines/${lineId}/delete`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        }
+    })
+    .then(function(response) {
+        if (response.ok) {
+            window.location.reload();
+        } else {
+            return response.json().then(function(data) {
+                throw new Error(data.error || 'Erreur lors de la suppression');
+            });
+        }
+    })
+    .catch(function(error) {
+        alert('Erreur : ' + error.message);
+    });
+}
+
+// Exposer les fonctions globalement (pour formulaires HTMX)
+window.openLineModalForCreate = openLineModalForCreate;
+window.openLineModalForExistingAdd = openLineModalForExistingAdd;
+window.openLineModalForEdit = openLineModalForEdit;
+window.closeOrderLineModal = closeLineModal;
+window.addTempOrderLineFromForm = addTempOrderLineFromForm;
+window.removeOrderLine = removeOrderLine;
+
+function initializeOrderForm() {
+    const form = document.getElementById('order-form');
+    if (!form) {
+        return;
+    }
+    hideLineError();
+    const isEdit = {{ 'true' if order else 'false' }};
+    form.dataset.isEdit = isEdit ? 'true' : 'false';
+    form.addEventListener('submit', function(event) {
+        if (!validateOrderBeforeSubmit(form)) {
+            event.preventDefault();
+        }
+    });
+    const addressField = document.getElementById('adresse_livraison');
+    if (addressField) {
+        addressField.addEventListener('input', function() {
+            if (addressField.value.trim()) {
+                hideDeliveryAddressError();
+            }
+        });
+    }
+
+    toggleDeliveryAddress(false);
+}
+
+initializeOrderForm();
+</script>
+
+<!-- Modal pour ajouter/modifier une ligne de commande -->
+<div id="order-line-modal" class="modal" style="display: none;">
+    <div class="modal-overlay" onclick="closeOrderLineModal()"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="order-line-modal-title">{{ icon('plus') }} Ajouter une ligne</h2>
+            <button class="modal-close" onclick="closeOrderLineModal()">×</button>
+        </div>
+        <div class="modal-body" id="order-line-modal-body">
+            <!-- Le contenu sera chargé via HTMX -->
+        </div>
+    </div>
+</div>
+

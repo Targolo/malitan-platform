@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Commande en Retard - Malitan 3D</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+    <div style="background-color: #ff6b6b; padding: 20px; text-align: center; border-radius: 5px 5px 0 0;">
+        <h1 style="color: white; margin: 0;">⚠️ Alerte</h1>
+    </div>
+    
+    <div style="background-color: #f9f9f9; padding: 30px; border-radius: 0 0 5px 5px;">
+        <h2 style="color: #d32f2f;">Commande en retard</h2>
+        
+        <p>Bonjour,</p>
+        
+        <div style="background-color: #ffebee; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ff6b6b;">
+            <h3 style="margin-top: 0; color: #d32f2f;">⚠️ Attention requise</h3>
+            <p><strong>Commande :</strong> {{ order_number }}</p>
+            <p><strong>Client :</strong> {{ client_name }}</p>
+            <p><strong>Date de livraison prévue :</strong> {{ expected_date }}</p>
+            <p><strong>Retard :</strong> {{ days_late }} jour(s)</p>
+        </div>
+        
+        <p>Cette commande dépasse la date de livraison prévue. Veuillez vérifier son statut et prendre les mesures nécessaires.</p>
+        
+        <p style="margin-top: 30px;">
+            Cordialement,<br>
+            <strong>Malitan 3D Manager</strong>
+        </p>
+    </div>
+    
+    <div style="text-align: center; margin-top: 20px; color: #888; font-size: 12px;">
+        <p>Cet email a été envoyé automatiquement par le système de gestion.</p>
+    </div>
+</body>
+</html>
+

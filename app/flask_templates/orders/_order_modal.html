@@ -1,0 +1,116 @@
+{% from 'macros/icons.html' import icon %}
+{% from 'macros/badges.html' import order_status, fab_status, delivery_mode, no_packaging %}
+<div class="order-modal-wrapper">
+    <section class="order-modal-header">
+        <div class="order-modal-date">
+            <span class="order-modal-label">Date</span>
+            <span class="order-modal-value">{{ order.date_commande.strftime('%d/%m/%Y') if order.date_commande else '—' }}</span>
+        </div>
+        <div class="order-modal-time">
+            <span class="order-modal-label">Heure</span>
+            <span class="order-modal-value">{{ order.date_commande.strftime('%H:%M') if order.date_commande else '—' }}</span>
+        </div>
+        <div class="order-modal-number">
+            <span class="order-modal-label">Commande</span>
+            <span class="order-modal-value">{{ order.numero_commande }}</span>
+        </div>
+        <div class="order-modal-status">
+            {{ order_status(order.statut) }}
+        </div>
+    </section>
+
+    {% set total_lines = order.order_lines|length %}
+    {% set ns = namespace(printed=0) %}
+    {% for line in order.order_lines %}
+        {% if line.statut_fabrication.value in ['imprime', 'livre_lea'] %}
+            {% set ns.printed = ns.printed + 1 %}
+        {% endif %}
+    {% endfor %}
+
+    <section class="order-modal-summary">
+        <div>
+            <span class="order-modal-label">Montant total</span>
+            <span class="order-modal-amount">{{ "%.0f"|format(order.total_prix_vente) }} ₪</span>
+        </div>
+        <div>
+            <span class="order-modal-label">Statut de fabrication</span>
+            <span class="order-modal-value">{{ ns.printed }} / {{ total_lines }} lignes imprimées</span>
+        </div>
+        <div>
+            <span class="order-modal-value">
+                {{ delivery_mode(order.mode_livraison) }}
+            </span>
+        </div>
+        {% if order.ne_pas_emballer %}
+        <div>
+            <span class="order-modal-value">
+                {{ no_packaging() }}
+            </span>
+        </div>
+        {% endif %}
+        {% if order.date_livraison_prevue %}
+        <div>
+            <span class="order-modal-label">Livraison prévue</span>
+            <span class="order-modal-value">{{ order.date_livraison_prevue.strftime('%d/%m/%Y') }}</span>
+        </div>
+        {% endif %}
+    </section>
+
+    {% if order.mode_livraison.value == 'livraison' and order.adresse_livraison and order.adresse_livraison != 'None' %}
+    <section class="order-modal-section">
+        <h3>{{ icon('map-pin') }} Adresse de livraison</h3>
+        <p class="order-modal-address">{{ order.adresse_livraison|replace('\n', '<br>')|safe }}</p>
+    </section>
+    {% endif %}
+
+    {% if order.observations %}
+    <section class="order-modal-section">
+        <h3>{{ icon('file-text') }} Observations</h3>
+        <p class="order-modal-observations">{{ order.observations }}</p>
+    </section>
+    {% endif %}
+
+    <section class="order-modal-section">
+        <h3>Lignes de commande ({{ order.order_lines|length }})</h3>
+        <div class="order-modal-lines">
+            {% for line in order.order_lines %}
+            <div class="order-modal-line">
+                <div class="line-col">
+                    <span class="order-modal-label">Produit</span>
+                    <span class="order-modal-value">{{ line.product.nom }}</span>
+                </div>
+                <div class="line-col">
+                    <span class="order-modal-label">Couleur</span>
+                    <span class="order-modal-value">
+                        {% if line.color and line.color.code_hex %}
+                        <span class="color-badge-mini" style="background-color: {{ line.color.code_hex }};"></span>
+                        {% endif %}
+                        {{ line.color.nom if line.color else '—' }}
+                    </span>
+                </div>
+                <div class="line-col">
+                    <span class="order-modal-label">Statut fabrication</span>
+                    <span class="order-modal-value">{{ fab_status(line.statut_fabrication) }}</span>
+                </div>
+                <div class="line-col">
+                    <span class="order-modal-label">Montant</span>
+                    <span class="order-modal-amount">{{ "%.0f"|format(line.prix_vente_total) }} ₪</span>
+                </div>
+                {% if line.personnalisation %}
+                <div class="line-col">
+                    <span class="order-modal-label">Personnalisation</span>
+                    <span class="order-modal-value">{{ line.personnalisation }}</span>
+                </div>
+                {% endif %}
+                {% if line.observations %}
+                <div class="line-col">
+                    <span class="order-modal-label">Observations</span>
+                    <span class="order-modal-value">{{ line.observations }}</span>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+</div>
+

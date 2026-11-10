@@ -1,0 +1,39 @@
+-- =====================================================
+-- Migration 1.0.4 to 1.0.5 - Add Danielle User Role
+-- =====================================================
+-- Date: 2025-01-XX
+-- Description: Add 'danielle' role to user_role ENUM
+-- 
+-- Changes:
+-- - Add 'danielle' value to user_role ENUM
+-- =====================================================
+
+-- =====================================================
+-- 1. ALTER ENUM TYPE (must be in separate transaction)
+-- =====================================================
+
+-- Add 'danielle' to user_role ENUM
+-- Note: This must be committed before we can use the new value
+ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'danielle';
+
+-- =====================================================
+-- 2. CREATE DANIELLE USER (if not exists)
+-- =====================================================
+-- Note: This must be run AFTER the enum value is committed
+-- The script will handle this by committing after step 1
+
+-- Note: Password hash for 'dev123' in production should be changed
+-- Hash for 'dev123': 87274af01876341455b32d805946f272871bb42effa6604dccf28bb027afa82b
+-- To generate a new hash: python -c "import hashlib; print(hashlib.sha256('password'.encode()).hexdigest())"
+
+INSERT INTO users (username, password_hash, full_name, role)
+SELECT 'danielle', 
+       '87274af01876341455b32d805946f272871bb42effa6604dccf28bb027afa82b',  -- dev123 (CHANGE IN PRODUCTION!)
+       'Danielle',
+       'danielle'::user_role
+WHERE NOT EXISTS (
+    SELECT 1 FROM users WHERE username = 'danielle'
+);
+
+COMMENT ON TYPE user_role IS 'User roles: david, lea, danielle';
+

@@ -1,0 +1,37 @@
+-- =====================================================
+-- Migration 1.1.0 to 1.2.0
+-- Ajout de la gestion de stock pour les produits finis
+-- =====================================================
+-- Date: 2025-01-XX
+-- Description: 
+--   - Ajout du champ 'gestion_stock' (boolean) à la table products
+--   - Ajout du champ 'alerte_stock' (integer) à la table products
+--   - Permet de marquer certains produits comme ayant une gestion de stock
+--   - Permet de définir un seuil d'alerte pour chaque produit
+
+BEGIN;
+
+-- Ajouter colonne 'gestion_stock' à la table products
+ALTER TABLE products 
+ADD COLUMN IF NOT EXISTS gestion_stock BOOLEAN DEFAULT FALSE;
+
+-- Ajouter colonne 'alerte_stock' à la table products
+ALTER TABLE products 
+ADD COLUMN IF NOT EXISTS alerte_stock INTEGER DEFAULT 0;
+
+-- Mettre à jour les valeurs existantes (par défaut, aucun produit n'a la gestion de stock activée)
+UPDATE products SET gestion_stock = FALSE WHERE gestion_stock IS NULL;
+UPDATE products SET alerte_stock = 0 WHERE alerte_stock IS NULL;
+
+COMMENT ON COLUMN products.gestion_stock IS 'Indique si la gestion de stock est activée pour ce produit';
+COMMENT ON COLUMN products.alerte_stock IS 'Seuil d''alerte de stock (alerte si stock <= cette valeur)';
+
+COMMIT;
+
+-- Vérification
+SELECT 
+    'Migration 1.1.0 to 1.2.0 completed successfully' as status,
+    COUNT(*) FILTER (WHERE gestion_stock = TRUE) as produits_avec_gestion_stock,
+    COUNT(*) FILTER (WHERE alerte_stock > 0) as produits_avec_alerte_definie
+FROM products;
+

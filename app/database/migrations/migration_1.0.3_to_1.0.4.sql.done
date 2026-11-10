@@ -1,0 +1,114 @@
+-- =====================================================
+-- Migration 1.0.3 to 1.0.4 - Finished Goods Stock Management
+-- =====================================================
+-- Date: 2025-11-08
+-- Description: Add stock management for pre-printed products (finished goods)
+-- 
+-- Changes:
+-- - Add finished_goods_movement_type ENUM
+-- - Add finished_goods_stock table (tracks available pre-printed products)
+-- - Add finished_goods_movements table (history of stock changes)
+-- =====================================================
+
+-- =====================================================
+-- 1. CREATE NEW ENUM TYPE
+-- =====================================================
+
+-- Finished goods stock movement types
+DO $$ BEGIN
+    CREATE TYPE finished_goods_movement_type AS ENUM (
+        'entree',  -- Adding to stock (pre-printed)
+        'sortie'   -- Using from stock (assigned to order)
+    );
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+-- =====================================================
+-- 2. CREATE NEW TABLES
+-- =====================================================
+
+-- Finished goods stock table
+CREATE TABLE IF NOT EXISTS finished_goods_stock (
+    id SERIAL PRIMARY KEY,
+    product_id INTEGER NOT NULL REFERENCES products(id),
+    color_id INTEGER NOT NULL REFERENCES colors(id),
+    quantite_disponible INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Unique constraint: one stock entry per product+color combination
+    UNIQUE(product_id, color_id)
+);
+
+COMMENT ON TABLE finished_goods_stock IS 'Pre-printed products stock (finished goods ready to use)';
+COMMENT ON COLUMN finished_goods_stock.product_id IS 'Product reference';
+COMMENT ON COLUMN finished_goods_stock.color_id IS 'Color reference';
+COMMENT ON COLUMN finished_goods_stock.quantite_disponible IS 'Available quantity in stock';
+
+-- Finished goods movements table
+CREATE TABLE IF NOT EXISTS finished_goods_movements (
+    id SERIAL PRIMARY KEY,
+    product_id INTEGER NOT NULL REFERENCES products(id),
+    color_id INTEGER NOT NULL REFERENCES colors(id),
+    type finished_goods_movement_type NOT NULL,
+    quantite INTEGER NOT NULL,
+    order_line_id INTEGER REFERENCES order_lines(id),
+    date TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    observations TEXT,
+    created_by INTEGER REFERENCES users(id)
+);
+
+COMMENT ON TABLE finished_goods_movements IS 'Finished goods stock movements history';
+COMMENT ON COLUMN finished_goods_movements.type IS 'Movement type: entree (adding to stock) or sortie (using from stock)';
+COMMENT ON COLUMN finished_goods_movements.quantite IS 'Movement quantity (always positive, type indicates direction)';
+COMMENT ON COLUMN finished_goods_movements.order_line_id IS 'Order line if movement is SORTIE (using stock for an order)';
+
+-- =====================================================
+-- 3. CREATE INDEXES
+-- =====================================================
+
+CREATE INDEX IF NOT EXISTS idx_finished_goods_stock_product ON finished_goods_stock(product_id);
+CREATE INDEX IF NOT EXISTS idx_finished_goods_stock_color ON finished_goods_stock(color_id);
+
+CREATE INDEX IF NOT EXISTS idx_finished_goods_movements_product ON finished_goods_movements(product_id);
+CREATE INDEX IF NOT EXISTS idx_finished_goods_movements_color ON finished_goods_movements(color_id);
+CREATE INDEX IF NOT EXISTS idx_finished_goods_movements_date ON finished_goods_movements(date DESC);
+CREATE INDEX IF NOT EXISTS idx_finished_goods_movements_order_line ON finished_goods_movements(order_line_id);
+
+-- =====================================================
+-- 4. VERIFICATION
+-- =====================================================
+
+-- Check that new tables exist
+SELECT 
+    table_name,
+    (SELECT COUNT(*) FROM information_schema.columns WHERE table_name = t.table_name) as column_count
+FROM information_schema.tables t
+WHERE table_schema = 'public' 
+  AND table_name IN ('finished_goods_stock', 'finished_goods_movements')
+ORDER BY table_name;
+
+-- Check that new enum type exists
+SELECT 
+    typname as enum_name,
+    enumlabel as enum_value
+FROM pg_type t
+JOIN pg_enum e ON t.oid = e.enumtypid
+WHERE typname = 'finished_goods_movement_type'
+ORDER BY enumlabel;
+
+-- Show current stock (should be empty initially)
+SELECT 
+    p.nom as produit,
+    c.nom as couleur,
+    fgs.quantite_disponible
+FROM finished_goods_stock fgs
+JOIN products p ON fgs.product_id = p.id
+JOIN colors c ON fgs.color_id = c.id
+ORDER BY p.nom, c.nom;
+
+-- =====================================================
+-- MIGRATION COMPLETE!
+-- =====================================================
+

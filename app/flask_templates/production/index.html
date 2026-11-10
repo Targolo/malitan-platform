@@ -1,0 +1,411 @@
+{% extends "base.html" %}
+{% block page_class %}page-production{% endblock %}
+{% from 'macros/icons.html' import icon %}
+
+{% block title %}Production - Malitan 3D{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>{{ icon('layers') }} Production</h1>
+        <p class="page-subtitle">Priorisez, lancez et clôturez les impressions en un clin d'œil</p>
+    </div>
+    <div class="production-kpis">
+        <div class="mini-card">
+            <p class="mini-label">Objets en file</p>
+            <p class="mini-value">{{ queue_count }}</p>
+        </div>
+        <div class="mini-card">
+            <p class="mini-label">Personnalisations</p>
+            <p class="mini-value">{{ personalized_count }}</p>
+        </div>
+    </div>
+</div>
+
+{% if alerts and alerts.total > 0 %}
+<div class="alerts-panel">
+    {% for alert in alerts.critical %}
+    <div class="alert-chip critical">
+        <div class="alert-icon">{{ icon('dot-coral') }}</div>
+        <div>
+            <p class="alert-title">Urgent</p>
+            <p class="alert-message">{{ alert.message }}</p>
+        </div>
+    </div>
+    {% endfor %}
+    {% for alert in alerts.warning %}
+    <div class="alert-chip warning">
+        <div class="alert-icon">{{ icon('dot-peach') }}</div>
+        <div>
+            <p class="alert-title">Attention</p>
+            <p class="alert-message">{{ alert.message }}</p>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<div id="production-action-result"></div>
+
+<div class="tabs-card" id="production-tabs">
+    <div class="tab-buttons">
+        <button class="tab-button active" data-tab-target="production-queue-panel">{{ icon('clipboard') }} File principale</button>
+        <button class="tab-button" data-tab-target="production-personalized-panel">{{ icon('edit') }} Personnalisations</button>
+        <button class="tab-button" data-tab-target="production-printers-panel">{{ icon('printer') }} Imprimantes</button>
+        <button class="tab-button" data-tab-target="production-history-panel">{{ icon('clock') }} Historique</button>
+    </div>
+
+    <form method="get" class="filters-row production-filters" data-for-tabs="production-queue-panel production-personalized-panel" data-mobile-collapse="Filtres">
+        <div class="filter-field">
+            <label for="production-filter-product">Objet</label>
+            <select id="production-filter-product" name="product_id" onchange="this.form.submit()">
+                <option value="all" {% if filters.product == 'all' %}selected{% endif %}>Tous</option>
+                {% for option in product_options %}
+                <option value="{{ option.id }}" {% if filters.product == option.id|string %}selected{% endif %}>
+                    {{ option.label }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-field">
+            <label for="production-filter-color">Couleur</label>
+            <select id="production-filter-color" name="color_id" onchange="this.form.submit()">
+                <option value="all" {% if filters.color == 'all' %}selected{% endif %}>Toutes</option>
+                {% for option in color_options %}
+                <option value="{{ option.id }}" {% if filters.color == option.id|string %}selected{% endif %}>
+                    {{ option.label }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-field">
+            <label for="production-filter-order-search">Rechercher une commande</label>
+            <div class="filter-search">
+                <input type="text" 
+                       id="production-filter-order-search" 
+                       name="order_search" 
+                       placeholder="Numéro, nom ou prénom..."
+                       value="{{ filters.order_search|default('') }}"
+                       autocomplete="off"
+                       class="filter-search-input">
+                <button type="submit" class="btn btn-secondary">{{ icon('search') }} Rechercher</button>
+            </div>
+        </div>
+        <div class="filter-actions">
+            <a href="{{ url_for('production') }}" class="btn btn-ghost">Réinitialiser</a>
+        </div>
+    </form>
+    
+    <section id="production-queue-panel" class="tab-panel active">
+        {% if not queue_count %}
+        <div class="empty-state">Tout est imprimé. Prenez un café </div>
+        {% endif %}
+        {% set section_tones = {'en_cours': 'primary', 'prochain': 'peach', 'file_attente': 'neutral', 'imprime': 'green'} %}
+        {% for section in queue_sections %}
+        {% set tone = section_tones.get(section.key, 'neutral') %}
+        <div class="queue-section tone-{{ tone }}">
+        <div class="queue-section-header">
+            <h3>{{ icon(section.icon) if section.icon }} {{ section.title }}</h3>
+            <span class="tag tone-{{ tone }}">{{ section.lines|sum(attribute='quantite') }}</span>
+        </div>
+        {% if not section.lines %}
+        <div class="empty-section">Aucun objet dans cette section.</div>
+        {% else %}
+        <div class="production-list">
+            {% for line in section.lines %}
+            {% set section_key = section.key %}
+            {% set stock_key = line.product_id|string ~ '-' ~ line.color_id|string %}
+            {% set stock_qty = stock_cache.get(stock_key, 0) %}
+            {% set time_slot = time_slots.get(line.id) %}
+            {% include 'production/_line_row.html' %}
+            {% endfor %}
+        </div>
+        {% endif %}
+        </div>
+        {% endfor %}
+    </section>
+    
+    <section id="production-personalized-panel" class="tab-panel">
+        {% if not personalized_groups %}
+        <div class="empty-state">Aucune personnalisation à traiter pour le moment.</div>
+        {% else %}
+        <div class="personalized-intro">
+            <div>
+                <h3>{{ icon('edit') }} Objets à Imprimer avec Personnalisation</h3>
+                <p class="section-subtitle">
+                    Ordonnez vos objets personnalisés couleur par couleur pour garder la file fluide.
+                </p>
+                <div class="personalized-stats">
+                    <div class="mini-card">
+                        <p class="mini-label">Objets</p>
+                        <p class="mini-value">{{ personalized_count }}</p>
+                    </div>
+                    <div class="mini-card">
+                        <p class="mini-label">Couleurs</p>
+                        <p class="mini-value">{{ personalized_groups|length }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="personalized-grid">
+            {% for group in personalized_groups %}
+            <div class="color-panel">
+                <div class="color-header">
+                    {% if group.color and group.color.code_hex %}
+                    <span class="color-dot large" style="background-color: {{ group.color.code_hex }};"></span>
+                    {% else %}
+                    <span class="color-dot large" style="background-color: var(--text-muted);"></span>
+                    {% endif %}
+                    <div>
+                        <h4>{{ group.color.nom if group.color else 'Couleur inconnue' }}</h4>
+                        <p>{{ (group.statuses.en_cours + group.statuses.prochain + group.statuses.file_attente)|sum(attribute='quantite') }} objet(s)</p>
+                    </div>
+                </div>
+                {% set status_titles = {
+                    'en_cours': 'En cours',
+                    'prochain': 'Prochain',
+                    'file_attente': 'File d\'attente'
+                } %}
+                {% for key, title in status_titles.items() %}
+                {% set lines = group.statuses[key] %}
+                {% if lines %}
+                <h5 class="subsection-title">{{ title }} ({{ lines|sum(attribute='quantite') }})</h5>
+                <div class="production-list">
+                    {% for line in lines %}
+                    {% set section_key = key %}
+                    {% set stock_key = line.product_id|string ~ '-' ~ line.color_id|string %}
+                    {% set stock_qty = stock_cache.get(stock_key, 0) %}
+                    {% set time_slot = time_slots.get(line.id) %}
+                    {% include 'production/_line_row.html' %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </section>
+    
+    <section id="production-printers-panel" class="tab-panel">
+        {% if not workloads %}
+        <div class="empty-state">Aucune imprimante configurée pour le moment.</div>
+        {% else %}
+        <div class="printer-grid">
+            {% for workload in workloads %}
+            {% set printer = workload.printer %}
+            <div class="printer-card">
+                <div class="printer-header">
+                    <div>
+                        <h4>{{ printer.nom }}</h4>
+                        {% if printer.modele %}<p class="printer-model">{{ printer.modele }}</p>{% endif %}
+                    </div>
+                    <span class="status-pill">{{ printer.statut.replace('_', ' ').title() }}</span>
+                </div>
+                <div class="printer-metrics">
+                    <div>
+                        <p class="mini-label">File</p>
+                        <p class="mini-value">{{ workload.file_attente }}</p>
+                    </div>
+                    <div>
+                        <p class="mini-label">En cours</p>
+                        <p class="mini-value">{{ workload.en_cours }}</p>
+                    </div>
+                    <div>
+                        <p class="mini-label">Temps total</p>
+                        <p class="mini-value">{{ workload.total_time_hours }} h</p>
+                    </div>
+                </div>
+                {% if workload.current_job %}
+                <div class="current-job">
+                    <p><strong>{{ icon('refresh') }} Travail en cours</strong></p>
+                    <p>{{ workload.current_job.product_nom }} x{{ workload.current_job.quantite }}</p>
+                    {% if workload.current_job.personnalisation %}
+                    <p class="personal-chip">{{ icon('edit') }} {{ workload.current_job.personnalisation }}</p>
+                    {% endif %}
+                    {% if workload.current_job.order_numero %}
+                    <p class="printer-model">Commande {{ workload.current_job.order_numero }}</p>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </section>
+    
+    <section id="production-history-panel" class="tab-panel">
+        {% if not history_lines %}
+        <div class="empty-state">Pas encore d'historique sur cette période.</div>
+        {% else %}
+        <div class="history-stack">
+            {% for line in history_lines %}
+            <div class="history-item">
+                <div>
+                    <strong>{{ line.product.nom if line.product else 'Produit' }}</strong>
+                    <span class="history-order">{{ icon('bag') }} {{ line.order.numero_commande if line.order else 'N/A' }}</span>
+                </div>
+                <div>
+                    {% if line.color %}
+                    <span class="color-dot" style="background-color: {{ line.color.code_hex or 'var(--text-muted)' }};"></span>
+                    <span>{{ line.color.nom }}</span>
+                    {% endif %}
+                </div>
+                <div>{{ icon('clock') }} {{ line.temps_impression_total_minutes }} min</div>
+                <div>{{ icon('printer') }} {{ line.printer.nom if line.printer else 'N/A' }}</div>
+                <div>{{ icon('check') }} {{ line.date_fin_impression|israel_time('%d/%m %H:%M') if line.date_fin_impression else '—' }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </section>
+</div>
+
+<div id="production-modal" class="modal modal-large" style="display: none;">
+    <div class="modal-overlay" onclick="closeProductionModal()"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="production-modal-title">Action</h2>
+            <button class="modal-close" onclick="closeProductionModal()">×</button>
+        </div>
+        <div class="modal-body" id="production-modal-body">
+            <!-- Contenu chargé via HTMX -->
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const container = document.getElementById('production-tabs');
+    if (!container) return;
+    const ACTIVE_TAB_KEY = 'productionActiveTab';
+    const tabButtons = container.querySelectorAll('.tab-button');
+    const panels = container.querySelectorAll('.tab-panel');
+
+    const setActiveTab = (targetId, persist = false) => {
+        const targetPanel = document.getElementById(targetId);
+        const targetButton = container.querySelector(`.tab-button[data-tab-target="${targetId}"]`);
+        if (!targetPanel || !targetButton) return;
+        tabButtons.forEach(btn => btn.classList.remove('active'));
+        panels.forEach(panel => panel.classList.remove('active'));
+        targetButton.classList.add('active');
+        targetPanel.classList.add('active');
+        document.querySelectorAll('[data-for-tabs]').forEach(el => {
+            el.hidden = !el.dataset.forTabs.split(' ').includes(targetId);
+        });
+        if (persist) {
+            localStorage.setItem(ACTIVE_TAB_KEY, targetId);
+        }
+    };
+    
+    tabButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            const targetId = button.getAttribute('data-tab-target');
+            setActiveTab(targetId, true);
+        });
+    });
+
+    const savedTabId = localStorage.getItem(ACTIVE_TAB_KEY);
+    if (savedTabId) {
+        setActiveTab(savedTabId);
+    }
+})();
+
+document.addEventListener('click', function(event) {
+    const trigger = event.target.closest('.js-open-production-modal');
+    if (!trigger) return;
+    event.preventDefault();
+    const url = trigger.getAttribute('data-modal-url');
+    if (!url) return;
+    const title = trigger.getAttribute('data-modal-title') || 'Action';
+    openProductionModal(url, title);
+});
+
+document.addEventListener('click', function(event) {
+    const orderBtn = event.target.closest('.js-open-order-view');
+    if (orderBtn) {
+        event.preventDefault();
+        const orderId = orderBtn.getAttribute('data-order-id');
+        if (orderId) {
+        openProductionModal(`/orders/${orderId}/modal`, '🛍️ Détails de la commande');
+        }
+        return;
+    }
+    const clientBtn = event.target.closest('.js-open-client-view');
+    if (clientBtn) {
+        event.preventDefault();
+        const clientId = clientBtn.getAttribute('data-client-id');
+        if (clientId) {
+            openProductionModal(`/clients/${clientId}/modal`, '👥 Fiche client');
+        }
+    }
+});
+
+function openProductionModal(url, title) {
+    const modal = document.getElementById('production-modal');
+    const body = document.getElementById('production-modal-body');
+    const titleEl = document.getElementById('production-modal-title');
+    if (!modal || !body) return;
+    body.innerHTML = '<p>Chargement...</p>';
+    if (titleEl && title) {
+        titleEl.textContent = title;
+    }
+    modal.style.display = 'flex';
+    htmx.ajax('GET', url, {
+        target: '#production-modal-body',
+        swap: 'innerHTML'
+    });
+}
+
+function closeProductionModal() {
+    const modal = document.getElementById('production-modal');
+    const body = document.getElementById('production-modal-body');
+    if (!modal) return;
+    modal.style.display = 'none';
+    if (body) {
+        body.innerHTML = '';
+    }
+}
+
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        closeProductionModal();
+    }
+});
+
+window.openProductionModal = openProductionModal;
+window.closeProductionModal = closeProductionModal;
+
+// Auto-submit search after typing delay
+(function() {
+    const searchInput = document.getElementById('production-filter-order-search');
+    if (!searchInput) return;
+    
+    let searchTimeout;
+    searchInput.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        // Auto-submit after 800ms of no typing
+        searchTimeout = setTimeout(function() {
+            const form = searchInput.closest('form');
+            if (form && searchInput.value.trim()) {
+                form.submit();
+            }
+        }, 800);
+    });
+    
+    // Submit on Enter
+    searchInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            clearTimeout(searchTimeout);
+            e.preventDefault();
+            const form = searchInput.closest('form');
+            if (form) {
+                form.submit();
+            }
+        }
+    });
+})();
+</script>
+{% endblock %}
+
+

@@ -1,0 +1,90 @@
+{% from 'macros/icons.html' import icon %}
+{% from 'macros/badges.html' import order_status, fab_status, delivery_mode, no_packaging %}
+{# Carte client compacte avec détails au clic #}
+{% set client = item.client %}
+{% set orders = item.orders %}
+{% set stats = namespace(count=0, total=0) %}
+{% for order in orders %}
+    {% if order.statut.value != 'annule' %}
+        {% set stats.count = stats.count + 1 %}
+        {% set stats.total = stats.total + (order.total_prix_vente or 0) %}
+    {% endif %}
+{% endfor %}
+
+<div class="client-row" id="client-{{ client.id }}" onclick="toggleClientDetails({{ client.id }})">
+    <div class="client-col client-name" title="{{ client.prenom }} {{ client.nom }}">
+        <span class="client-name-text">{{ client.prenom }} {{ client.nom }}</span>
+        <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); openClientModal('edit', {{ client.id }})">{{ icon('edit') }}</button>
+    </div>
+    <div class="client-col client-email" title="{{ client.email or '' }}">{{ client.email or '—' }}</div>
+    <div class="client-col client-phone" title="{{ client.telephone or '' }}">{{ client.telephone or '—' }}</div>
+    <div class="client-col client-orders-count">{{ stats.count }}</div>
+    <div class="client-col client-total-spent">{{ "%.0f"|format(stats.total) }} ₪</div>
+    <div class="client-col client-notes">
+        {% if client.notes %}
+        <span class="notes-icon" title="{{ client.notes }}">{{ icon('file-text') }}</span>
+        {% else %}
+        —
+        {% endif %}
+    </div>
+</div>
+
+<div class="client-details" id="details-{{ client.id }}" style="display: none;">
+    <div class="client-details-content">
+        <div class="client-info-grid">
+            <div class="info-item">
+                <strong>Prénom:</strong> {{ client.prenom or '—' }}
+            </div>
+            <div class="info-item">
+                <strong>Nom:</strong> {{ client.nom }}
+            </div>
+            {% if client.provenance %}
+            <div class="info-item">
+                <strong>Provenance:</strong> {{ client.provenance }}
+            </div>
+            {% endif %}
+            {% if client.adresse %}
+            <div class="info-item full-width">
+                <strong>Adresse:</strong><br>
+                {{ client.adresse|replace('\n', '<br>')|safe }}
+            </div>
+            {% endif %}
+            {% if client.notes %}
+            <div class="info-item full-width">
+                <strong>{{ icon('file-text') }} Notes:</strong><br>
+                {{ client.notes }}
+            </div>
+            {% endif %}
+        </div>
+        
+        {% if orders %}
+        <div class="client-orders-section">
+            <h3 class="orders-title">{{ icon('package') }} Commandes ({{ orders|length }})</h3>
+            <div class="client-orders-list">
+                {% for order in orders %}
+                {% set total_lines = order.order_lines|length %}
+                {% set ns = namespace(printed=0) %}
+                {% for line in order.order_lines %}
+                    {% if line.statut_fabrication.value in ['imprime', 'livre_lea'] %}
+                        {% set ns.printed = ns.printed + 1 %}
+                    {% endif %}
+                {% endfor %}
+                <div class="client-order-summary" onclick="viewOrder({{ order.id }})">
+                    <div class="order-main">
+                        <span class="order-date">{{ order.date_commande.strftime('%d/%m/%Y') if order.date_commande else '' }}</span>
+                        <span class="order-time">{{ order.date_commande.strftime('%H:%M') if order.date_commande else '' }}</span>
+                        <span class="order-number">{{ order.numero_commande }}</span>
+                        <span class="order-observations-icon">{% if order.observations %}{{ icon('file-text') }}{% endif %}</span>
+                        {{ order_status(order.statut) }}
+                        <span class="order-progress">{{ ns.printed }} / {{ total_lines }}</span>
+                        <span class="order-total">{{ "%.0f"|format(order.total_prix_vente) }} ₪</span>
+                        <span class="order-delivery-date">{% if order.date_livraison_prevue %}{{ order.date_livraison_prevue.strftime('%d/%m/%Y') }}{% endif %}</span>
+                    </div>
+                    <button class="btn btn-secondary btn-sm" type="button">{{ icon('eye') }} Voir</button>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>

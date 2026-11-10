@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirmation de Commande - Malitan 3D</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+    <div style="background-color: #4ECDC4; padding: 20px; text-align: center; border-radius: 5px 5px 0 0;">
+        <h1 style="color: white; margin: 0;">🖨️ Malitan 3D</h1>
+    </div>
+    
+    <div style="background-color: #f9f9f9; padding: 30px; border-radius: 0 0 5px 5px;">
+        <h2 style="color: #333;">Confirmation de votre commande</h2>
+        
+        <p>Bonjour {{ client_name }},</p>
+        
+        <p>Nous avons bien reçu votre commande <strong>{{ order_number }}</strong> du {{ order_date }}.</p>
+        
+        <div style="background-color: white; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #4ECDC4;">
+            <h3 style="margin-top: 0;">Détails de la commande :</h3>
+            <p><strong>Numéro de commande :</strong> {{ order_number }}</p>
+            <p><strong>Date :</strong> {{ order_date }}</p>
+            <p><strong>Total :</strong> {{ total_price }} ₪</p>
+            {% if delivery_date %}
+            <p><strong>Livraison prévue :</strong> {{ delivery_date }}</p>
+            {% endif %}
+        </div>
+        
+        <h3>Articles commandés :</h3>
+        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+            <thead>
+                <tr style="background-color: #4ECDC4; color: white;">
+                    <th style="padding: 10px; text-align: left;">Produit</th>
+                    <th style="padding: 10px; text-align: center;">Quantité</th>
+                    <th style="padding: 10px; text-align: right;">Prix</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{ order_items }}
+            </tbody>
+            <tfoot>
+                <tr style="font-weight: bold; border-top: 2px solid #4ECDC4;">
+                    <td colspan="2" style="padding: 10px; text-align: right;">Total :</td>
+                    <td style="padding: 10px; text-align: right;">{{ total_price }} ₪</td>
+                </tr>
+            </tfoot>
+        </table>
+        
+        <p>Nous vous tiendrons informé(e) de l'avancement de votre commande.</p>
+        
+        <p>Merci de votre confiance !</p>
+        
+        <p style="margin-top: 30px;">
+            Cordialement,<br>
+            <strong>L'équipe Malitan 3D</strong>
+        </p>
+    </div>
+    
+    <div style="text-align: center; margin-top: 20px; color: #888; font-size: 12px;">
+        <p>Cet email a été envoyé automatiquement, merci de ne pas y répondre.</p>
+    </div>
+</body>
+</html>
+

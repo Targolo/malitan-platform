@@ -1,0 +1,9 @@
+-- Migration from version 1.2.0 to 1.2.1
+-- Add 'nom_original' field to colors table
+
+-- Add nom_original column to colors table
+ALTER TABLE colors 
+ADD COLUMN IF NOT EXISTS nom_original VARCHAR(100);
+
+COMMENT ON COLUMN colors.nom_original IS 'Original name from manufacturer (can be empty)';
+

@@ -1,0 +1,5 @@
+{# Fragment HTMX - Liste des clients uniquement (pour rechargement après création) #}
+{% for item in clients_with_orders %}
+    {% include 'clients/_client_card.html' %}
+{% endfor %}
+

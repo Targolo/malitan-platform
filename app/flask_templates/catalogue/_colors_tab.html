@@ -1,0 +1,108 @@
+{% from 'macros/icons.html' import icon %}
+<div class="catalog-tab-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <div>
+        <h2 style="margin: 0;">{{ icon('droplet') }} Gestion des Couleurs</h2>
+        <p style="color: var(--text-secondary); margin: 5px 0 0 0;">{{ colors|length }} couleur(s)</p>
+    </div>
+    <div>
+        <button class="btn btn-primary" 
+                hx-get="{{ url_for('color_form_new') }}" 
+                hx-target="#colorModalContent"
+                hx-swap="innerHTML"
+                onclick="openColorModal()">
+            {{ icon('plus') }} Nouvelle Couleur
+        </button>
+    </div>
+</div>
+
+{% if low_stock_colors %}
+<div class="alert alert-danger" style="margin-bottom: 20px;">
+    <strong>{{ icon('dot-coral') }} {{ low_stock_colors|length }} couleur(s) avec stock bas:</strong>
+    {% for color in low_stock_colors %}
+        <span>{{ color.nom }} ({{ color.stock_grammes|int }}g)</span>{% if not loop.last %}, {% endif %}
+    {% endfor %}
+</div>
+{% endif %}
+
+<div class="colors-list">
+    {% for color in colors %}
+    <div class="catalog-item" id="color-{{ color.id }}">
+        <div class="catalog-item-header">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                {% if color.code_hex %}
+                <span class="color-badge" style="background-color: {{ color.code_hex }};"></span>
+                {% endif %}
+                <div>
+                    <h3 class="catalog-item-title" style="display: flex; align-items: center; gap: 10px;">
+                        {{ color.nom }}
+                        {% if color.is_low_stock %}
+                        <span class="stock-status low">{{ icon('dot-coral') }} Stock bas</span>
+                        {% else %}
+                        <span class="stock-status ok">{{ icon('dot-green') }} OK</span>
+                        {% endif %}
+                    </h3>
+                    <p style="color: var(--text-secondary); margin: 5px 0 0 0; font-size: var(--text-sm);">
+                        {% if color.nom_original %}{{ color.nom_original }} - {% endif %}
+                        {% if color.marque %}{{ color.marque }} - {% endif %}
+                        {{ color.type_filament.value.upper().replace('_', ' ') }}
+                    </p>
+                </div>
+            </div>
+            <div class="catalog-item-actions">
+                <button class="btn btn-secondary btn-sm" 
+                        hx-get="{{ url_for('color_add_stock_form', color_id=color.id) }}" 
+                        hx-target="#colorModalContent"
+                        hx-swap="innerHTML"
+                        onclick="openColorModal()">
+                    {{ icon('plus') }} Stock
+                </button>
+                <button class="btn btn-secondary btn-sm" 
+                        hx-get="{{ url_for('color_form_edit', color_id=color.id) }}" 
+                        hx-target="#colorModalContent"
+                        hx-swap="innerHTML"
+                        onclick="openColorModal()">
+                    {{ icon('edit') }} Modifier
+                </button>
+            </div>
+        </div>
+        
+        <div class="catalog-item-body">
+            <div class="catalog-field">
+                <span class="catalog-field-label">Stock actuel</span>
+                <span class="catalog-field-value" style="font-weight: 600; font-size: var(--text-base);">
+                    {{ color.stock_grammes|int }}g
+                </span>
+            </div>
+            <div class="catalog-field">
+                <span class="catalog-field-label">Stock (kg)</span>
+                <span class="catalog-field-value">{{ color.stock_kg|round(2) }}kg</span>
+            </div>
+            <div class="catalog-field">
+                <span class="catalog-field-label">Coût par kg</span>
+                <span class="catalog-field-value">{{ color.cout_par_kg|int }} ₪</span>
+            </div>
+            <div class="catalog-field">
+                <span class="catalog-field-label">Valeur stock</span>
+                <span class="catalog-field-value">{{ ((color.stock_grammes / 1000) * color.cout_par_kg)|int }} ₪</span>
+            </div>
+            <div class="catalog-field">
+                <span class="catalog-field-label">Seuil alerte</span>
+                <span class="catalog-field-value">{{ color.seuil_alerte|int }}g</span>
+            </div>
+            {% if color.code_hex %}
+            <div class="catalog-field">
+                <span class="catalog-field-label">Code couleur</span>
+                <span class="catalog-field-value">{{ color.code_hex }}</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+    
+    {% if not colors %}
+    <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
+        <p>Aucune couleur trouvée</p>
+    </div>
+    {% endif %}
+</div>
+

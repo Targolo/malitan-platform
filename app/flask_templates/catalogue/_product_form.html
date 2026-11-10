@@ -1,0 +1,227 @@
+{% from 'macros/icons.html' import icon %}
+<div class="modal-header">
+    <h2>{% if product %}{{ icon('edit') }} Modifier le produit{% else %}{{ icon('plus') }} Nouveau produit{% endif %}</h2>
+</div>
+
+<div class="modal-body">
+<div id="product-form-error" style="display: none; margin-bottom: 15px;"></div>
+<form 
+    {% if product %}
+    hx-post="{{ url_for('product_update', product_id=product.id) }}"
+    {% else %}
+    hx-post="{{ url_for('product_create') }}"
+    {% endif %}
+    hx-encoding="multipart/form-data"
+    hx-target="body"
+    hx-swap="beforeend"
+    class="catalog-form">
+    
+    <div class="form-row">
+        <div class="form-group col-md-6">
+            <label for="nom">Nom *</label>
+            <input type="text" class="form-control" id="nom" name="nom" 
+                   value="{% if product %}{{ product.nom }}{% endif %}" required>
+        </div>
+        
+        <div class="form-group col-md-6">
+            <label for="product_type">Type de produit *</label>
+            <select class="form-control" id="product_type" name="product_type" 
+                    {% if product %}disabled{% endif %} required>
+                <option value="partage_benefices"{% if not product or product.product_type.value == 'partage_benefices'%}selected{% endif %}>Partage de bénéfices
+                </option>
+                <option value="revente_lea"{% if product and product.product_type.value == 'revente_lea'%}selected{% endif %}>Revente à Lea
+                </option>
+            </select>
+            {% if product %}
+            <input type="hidden" name="product_type" value="{{ product.product_type.value }}">
+            <small class="form-text text-muted">Le type de produit ne peut pas être modifié</small>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="form-group">
+        <label for="description">Description</label>
+        <textarea class="form-control" id="description" name="description" rows="2">{% if product %}{{ product.description or '' }}{% endif %}</textarea>
+    </div>
+    
+    <div class="form-group" style="margin-top: 20px;">
+        <label for="image">Image du produit</label>
+        {% if product and product.image_url %}
+        {% set image_filename = product.image_url.split('/')[-1] %}
+        <div style="margin-bottom: 15px; display: flex; align-items: center; gap: 15px;">
+            <img src="{{ url_for('serve_product_image', filename=image_filename) }}" 
+                 alt="{{ product.nom }}" 
+                 class="product-form-image-preview"
+                 onerror="this.style.display='none'">
+            <div>
+                <small class="form-text text-muted" style="display: block; margin-bottom: 5px;">Image actuelle</small>
+                <small class="form-text text-muted" style="display: block;">{{ product.image_url|basename }}</small>
+            </div>
+        </div>
+        {% endif %}
+        <div class="custom-file-upload">
+            <input type="file" class="form-control-file" id="image" name="image" accept="image/*" onchange="updateFileName(this)">
+            <div class="file-upload-wrapper">
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('image').click()">
+                    {{ icon('folder') }} Choisir un fichier
+                </button>
+                <span id="file-name" class="file-name-display">Aucun fichier choisi</span>
+            </div>
+        </div>
+        {% if not product or not product.image_url %}
+        <small class="form-text text-muted" style="display: block; margin-top: 8px;">Aucune image actuelle</small>
+        {% endif %}
+    </div>
+    
+    <div class="form-row" style="margin-top: 15px;">
+        <div class="form-group col-md-3">
+            <label for="prix_vente_base">Prix vente base (₪) *</label>
+            <input type="number" class="form-control" id="prix_vente_base" name="prix_vente_base" 
+                   value="{% if product %}{{ product.prix_vente_base|int }}{% endif %}" 
+                   min="0" step="1" required>
+        </div>
+        
+        {% if not product or product.product_type.value == 'partage_benefices' %}
+        <div class="form-group col-md-3" id="prix_revient_david_group">
+            <label for="prix_revient_david">Prix revient David (₪) *</label>
+            <input type="number" class="form-control" id="prix_revient_david" name="prix_revient_david" 
+                   value="{% if product %}{{ product.prix_revient_david|int }}{% endif %}" 
+                   min="0" step="1" required>
+        </div>
+        
+        <div class="form-group col-md-3" id="prix_revient_lea_group">
+            <label for="prix_revient_lea">Prix revient Lea (₪) *</label>
+            <input type="number" class="form-control" id="prix_revient_lea" name="prix_revient_lea" 
+                   value="{% if product %}{{ product.prix_revient_lea|int }}{% endif %}" 
+                   min="0" step="1" required>
+        </div>
+        {% else %}
+        <div class="form-group col-md-3" id="prix_vente_lea_group">
+            <label for="prix_vente_lea">{{ icon('dollar') }} Prix vente à Lea (₪) *</label>
+            <input type="number" class="form-control" id="prix_vente_lea" name="prix_vente_lea" 
+                   value="{% if product %}{{ product.prix_vente_lea|int }}{% endif %}" 
+                   min="0" step="1" required>
+        </div>
+        
+        <div class="form-group col-md-3" id="prix_revient_david_group">
+            <label for="prix_revient_david">Prix revient David (₪) <small style="color: var(--text-muted);">(indicatif)</small></label>
+            <input type="number" class="form-control" id="prix_revient_david" name="prix_revient_david" 
+                   value="{% if product %}{{ product.prix_revient_david|int }}{% endif %}" 
+                   min="0" step="1">
+        </div>
+        
+        <div class="form-group col-md-3" id="prix_revient_lea_group">
+            <label for="prix_revient_lea">Prix revient Lea (₪) *</label>
+            <input type="number" class="form-control" id="prix_revient_lea" name="prix_revient_lea" 
+                   value="{% if product %}{{ product.prix_revient_lea|int }}{% endif %}" 
+                   min="0" step="1" required>
+        </div>
+        {% endif %}
+    </div>
+    
+    <div class="form-row">
+        <div class="form-group col-md-5">
+            <label for="poids_grammes">Poids (grammes)</label>
+            <input type="number" class="form-control" id="poids_grammes" name="poids_grammes" 
+                   value="{% if product %}{{ product.poids_grammes|int }}{% endif %}" 
+                   min="0" step="1">
+        </div>
+        
+        <div class="form-group col-md-5">
+            <label for="temps_impression_minutes">Temps impression (minutes)</label>
+            <input type="number" class="form-control" id="temps_impression_minutes" name="temps_impression_minutes" 
+                   value="{% if product %}{{ product.temps_impression_minutes }}{% endif %}" 
+                   min="0" step="10">
+        </div>
+        
+        <div class="form-group col-md-2">
+            <label for="alerte_stock">Alerte stock</label>
+            <input type="number" class="form-control" id="alerte_stock" name="alerte_stock" 
+                   value="{% if product %}{{ product.alerte_stock }}{% else %}0{% endif %}" 
+                   min="0" step="1">
+        </div>
+    </div>
+    
+    <div class="form-group">
+        <label for="observations">Observations</label>
+        <textarea class="form-control" id="observations" name="observations" rows="2">{% if product %}{{ product.observations or '' }}{% endif %}</textarea>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group col-md-6">
+            <label for="liens_tinkercad">{{ icon('link') }} Conceptions Tinkercad</label>
+            <textarea class="form-control" id="liens_tinkercad" name="liens_tinkercad" rows="2"
+                      placeholder="https://www.tinkercad.com/things/...">{% if product %}{{ product.liens_tinkercad or '' }}{% endif %}</textarea>
+            <small class="form-text text-muted">Une adresse par ligne (copiée depuis Tinkercad)</small>
+        </div>
+
+        <div class="form-group col-md-6">
+            <label for="fichiers_3mf">{{ icon('folder') }} Fichiers 3MF</label>
+            <textarea class="form-control" id="fichiers_3mf" name="fichiers_3mf" rows="2"
+                      placeholder="Nom du fichier.3mf">{% if product %}{{ product.fichiers_3mf or '' }}{% endif %}</textarea>
+            <small class="form-text text-muted">Un nom de fichier par ligne, sans le dossier</small>
+        </div>
+    </div>
+
+    <div class="form-row" style="margin-top: 5px;">
+        <div class="form-group col-md-4">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="personalisable" name="personalisable"
+                       {% if product and product.personalisable %}checked{% endif %}
+                       style="width: 20px; height: 20px; cursor: pointer; margin: 0; flex-shrink: 0;">
+                <label for="personalisable" style="cursor: pointer; margin: 0; display: flex; align-items: center; gap: 8px;">
+                    <span style="font-weight: 500; font-size: var(--text-sm);">{{ icon('edit') }} Personnalisable</span>
+                    <span class="info-tooltip" title="Le produit nécessite une personnalisation lors de la commande">ⓘ</span>
+                </label>
+            </div>
+        </div>
+        
+        <div class="form-group col-md-4">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="gestion_stock" name="gestion_stock"
+                       {% if product and product.gestion_stock %}checked{% endif %}
+                       style="width: 20px; height: 20px; cursor: pointer; margin: 0; flex-shrink: 0;">
+                <label for="gestion_stock" style="cursor: pointer; margin: 0; display: flex; align-items: center; gap: 8px;">
+                    <span style="font-weight: 500; font-size: var(--text-sm);">{{ icon('package') }} Gestion de stock</span>
+                    <span class="info-tooltip" title="Le produit apparaîtra dans la liste d'ajout au stock">ⓘ</span>
+                </label>
+            </div>
+        </div>
+        
+        {% if product %}
+        <div class="form-group col-md-4">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="actif" name="actif"
+                       {% if product.actif %}checked{% endif %}
+                       style="width: 20px; height: 20px; cursor: pointer; margin: 0; flex-shrink: 0;">
+                <label for="actif" style="cursor: pointer; margin: 0; display: flex; align-items: center; gap: 8px;">
+                    <span style="font-weight: 500; font-size: var(--text-sm);">{{ icon('check') }} Actif</span>
+                    <span class="info-tooltip" title="Le produit est visible et utilisable">ⓘ</span>
+                </label>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <div class="form-actions">
+        <button type="button" class="btn btn-ghost" onclick="closeProductModal()">{{ icon('x') }} Annuler</button>
+        <button type="submit" class="btn btn-primary">
+            {% if product %}{{ icon('save') }} Enregistrer{% else %}{{ icon('check') }} Créer{% endif %}
+        </button>
+    </div>
+</form>
+</div>
+
+<script>
+function updateFileName(input) {
+    const fileNameDisplay = document.getElementById('file-name');
+    if (input.files && input.files[0]) {
+        fileNameDisplay.textContent = input.files[0].name;
+        fileNameDisplay.classList.add('has-file');
+    } else {
+        fileNameDisplay.textContent = 'Aucun fichier choisi';
+        fileNameDisplay.classList.remove('has-file');
+    }
+}
+</script>
+
