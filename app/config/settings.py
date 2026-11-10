@@ -20,9 +20,19 @@ ENV = os.getenv('ENV', 'production')
 APP_NAME = os.getenv('APP_NAME', 'Malitan 3D Manager')
 APP_VERSION = os.getenv('APP_VERSION', '2.11.4')
 
+# Paths
+BASE_DIR = Path(__file__).parent.parent
+# Not created at import time: whoever writes to them creates them.
+DATA_DIR = Path(os.getenv('DATA_DIR', str(BASE_DIR / 'data')))
+EXPORTS_DIR = Path(os.getenv('EXPORTS_DIR', str(BASE_DIR / 'exports')))
+BACKUPS_DIR = Path(os.getenv('BACKUPS_DIR', str(BASE_DIR / 'backups')))
+
 # Database
 DATABASE_TYPE = os.getenv('DATABASE_TYPE', 'sqlite')
-DATABASE_URL = os.getenv('DATABASE_URL', 'sqlite:///./dev_malitan_flask_test.db')
+DATABASE_URL = os.getenv('DATABASE_URL', f"sqlite:///{DATA_DIR / 'malitan.db'}")
+
+# Session cookie: sent over HTTPS only unless explicitly disabled (e.g. local http dev)
+SESSION_COOKIE_SECURE = os.getenv('SESSION_COOKIE_SECURE', 'true').strip().lower() not in ('0', 'false', 'no', 'off')
 
 # Authentication
 AUTH_SECRET_KEY_MIN_LENGTH = 32
@@ -62,13 +72,6 @@ DEV_USERS = {
         'role': 'danielle'
     }
 }
-
-# Paths
-BASE_DIR = Path(__file__).parent.parent
-# Not created at import time: whoever writes to them creates them.
-DATA_DIR = Path(os.getenv('DATA_DIR', str(BASE_DIR / 'data')))
-EXPORTS_DIR = Path(os.getenv('EXPORTS_DIR', str(BASE_DIR / 'exports')))
-BACKUPS_DIR = Path(os.getenv('BACKUPS_DIR', str(BASE_DIR / 'backups')))
 
 # Stock alerts
 FILAMENT_LOW_STOCK_THRESHOLD = 500  # grams

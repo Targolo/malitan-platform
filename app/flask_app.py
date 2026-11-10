@@ -6,6 +6,7 @@ import io
 import json
 import os
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from pathlib import Path
@@ -14,6 +15,8 @@ from zoneinfo import ZoneInfo
 import click
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify, send_file, send_from_directory, flash, get_flashed_messages
 from dotenv import load_dotenv
+from sqlalchemy import text
+from sqlalchemy.engine import make_url
 
 # Load environment variables
 # Priority: .env.flask_local (local dev) > .env.production (production) > .env (fallback)
@@ -35,7 +38,8 @@ else:
         print("⚠️  Using default .env")
 
 # Import settings after loading the appropriate .env so DATABASE_URL est à jour
-from config.settings import APP_NAME, APP_VERSION, AUTH_SECRET_KEY, DATABASE_URL, DATABASE_TYPE, ENV, get_database_url
+import config.settings as app_settings
+from config.settings import APP_NAME, APP_VERSION, AUTH_SECRET_KEY, DATABASE_URL, DATABASE_TYPE, ENV, SESSION_COOKIE_SECURE, get_database_url
 from database.connection import init_database, get_db_session
 from database.models import OrderStatus, Order, OrderLine, FabricationStatus, DeliveryMode
 
@@ -45,7 +49,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # Initialize Flask app
 app = Flask(__name__, template_folder='flask_templates', static_folder='flask_static')
 app.config['SECRET_KEY'] = AUTH_SECRET_KEY
-app.config['SESSION_TYPE'] = 'filesystem'
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = SESSION_COOKIE_SECURE
 
 # Filtre Jinja2 pour formater les statuts de commande
 @app.template_filter('format_order_status')
@@ -81,11 +87,19 @@ def israel_time_filter(value, fmt='%d/%m/%Y %H:%M'):
         value = value.replace(tzinfo=timezone.utc)
     return value.astimezone(ISRAEL_TZ).strftime(fmt)
 
+def _display_db_url(url: str) -> str:
+    """Database URL safe for logs: password replaced by ***."""
+    try:
+        return make_url(url).render_as_string(hide_password=True)
+    except Exception:
+        return '[unparseable database URL]'
+
+
 # Initialize database
 # Uses .env.flask_local (local dev) or .env.production (production)
 print(f"📊 Database Type: {DATABASE_TYPE}")
 if DATABASE_URL:
-    display_env_url = DATABASE_URL
+    display_env_url = _display_db_url(DATABASE_URL)
     if len(display_env_url) > 200:
         display_env_url = display_env_url[:197] + "..."
     print(f"📊 Database URL (from env): {display_env_url}")
@@ -94,7 +108,7 @@ else:
 
 # Vérifier quelle URL sera réellement utilisée
 actual_url = get_database_url()
-display_actual_url = actual_url
+display_actual_url = _display_db_url(actual_url)
 if len(display_actual_url) > 200:
     display_actual_url = display_actual_url[:197] + "..."
 print(f"📊 Database URL (actual): {display_actual_url}")
@@ -115,9 +129,9 @@ try:
     init_database()
     print("✅ Database initialized successfully")
 except Exception as e:
-    print(f"❌ ERROR: Failed to initialize database: {e}")
-    import traceback
-    traceback.print_exc()
+    # The message (and traceback) can quote the raw URL, password included
+    error_message = str(e).replace(actual_url, display_actual_url) if actual_url else str(e)
+    print(f"❌ ERROR: Failed to initialize database: {type(e).__name__}: {error_message}")
     # Don't crash - let Flask start anyway, errors will show when accessing DB
     print("⚠️  Continuing anyway - database errors will show when accessing routes")
 
@@ -695,7 +709,6 @@ def order_create():
         from datetime import datetime
         
         # Récupérer les données du formulaire
-        app.logger.info("📋 product_update form data: %s", request.form.to_dict(flat=False))
         client_id = request.form.get('client_id', type=int)
         if not client_id:
             return jsonify({'error': 'Client requis'}), 400
@@ -1198,13 +1211,35 @@ def client_create():
 
 # ========== CATALOGUE ==========
 
+def _product_images_dir(create: bool = False) -> Path:
+    """DATA_DIR/product_images; created on demand (uploads), with a clear error if not writable."""
+    images_dir = app_settings.DATA_DIR / 'product_images'
+    if create:
+        try:
+            images_dir.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            raise RuntimeError(f"Cannot create product image directory {images_dir}: {e.strerror}") from e
+    return images_dir
+
+
+def _product_image_path(image_url):
+    """
+    Resolve a stored image_url to its file under DATA_DIR/product_images, by file name.
+    Handles legacy values such as 'data/product_images/x.png' (or Windows separators).
+    """
+    if not image_url:
+        return None
+    filename = image_url.replace('\\', '/').rsplit('/', 1)[-1]
+    if filename in ('', '.', '..'):
+        return None
+    return _product_images_dir() / filename
+
+
 @app.route('/data/product_images/<path:filename>')
 @login_required
 def serve_product_image(filename):
-    """Servir les images des produits depuis data/product_images/"""
-    from pathlib import Path as PathLib
-    images_dir = PathLib(__file__).parent / 'data' / 'product_images'
-    return send_from_directory(str(images_dir), filename)
+    """Servir les images des produits depuis DATA_DIR/product_images/"""
+    return send_from_directory(str(_product_images_dir()), filename)
 
 @app.route('/catalogue')
 @login_required
@@ -1359,12 +1394,10 @@ def product_create():
                     file_ext = image_file.filename.rsplit('.', 1)[1].lower()
                     image_filename = f"{safe_name}_{session['user_id']}.{file_ext}"
                     
-                    # Sauvegarder dans data/product_images/
-                    images_dir = Path('data/product_images')
-                    images_dir.mkdir(parents=True, exist_ok=True)
-                    image_path = images_dir / image_filename
+                    # Sauvegarder dans DATA_DIR/product_images/ (on stocke le nom de fichier)
+                    image_path = _product_images_dir(create=True) / image_filename
                     image_file.save(str(image_path))
-                    image_url = str(image_path)
+                    image_url = image_filename
                 except Exception as e:
                     error_msg = f"Erreur lors de l'upload de l'image: {str(e)}"
                     app.logger.error(f"Product creation error: {error_msg}\n{traceback.format_exc()}")
@@ -1456,9 +1489,10 @@ def product_update(product_id):
             image_file = request.files['image']
             if image_file and image_file.filename:
                 # Supprimer l'ancienne image si elle existe
-                if product.image_url and Path(product.image_url).exists():
+                old_image_path = _product_image_path(product.image_url)
+                if old_image_path and old_image_path.exists():
                     try:
-                        Path(product.image_url).unlink()
+                        old_image_path.unlink()
                     except OSError:
                         pass
                 
@@ -1467,12 +1501,10 @@ def product_update(product_id):
                 file_ext = image_file.filename.rsplit('.', 1)[1].lower()
                 image_filename = f"{safe_name}_{product_id}.{file_ext}"
                 
-                # Sauvegarder dans data/product_images/
-                images_dir = Path('data/product_images')
-                images_dir.mkdir(parents=True, exist_ok=True)
-                image_path = images_dir / image_filename
+                # Sauvegarder dans DATA_DIR/product_images/ (on stocke le nom de fichier)
+                image_path = _product_images_dir(create=True) / image_filename
                 image_file.save(str(image_path))
-                image_url = str(image_path)
+                image_url = image_filename
         
         # Mettre à jour le produit
         update_product(
@@ -3042,17 +3074,34 @@ def settings_export(dataset):
         db.close()
 
 
-# Health check endpoint for Render
-@app.route('/health')
-def health():
-    """Health check endpoint for Render"""
+# Kubernetes probes (no login required)
+READYZ_TIMEOUT_SECONDS = 2
+# One worker: a hung database check can't pile up threads; later probes time out instead.
+_readyz_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix='readyz')
+
+
+@app.route('/livez')
+def livez():
+    """Liveness: the process answers HTTP. Never touches the database."""
+    return jsonify({'status': 'ok'}), 200
+
+
+def _check_database():
+    from database import connection
+    engine = connection.engine if connection.engine is not None else connection.init_database()
+    with engine.connect() as conn:
+        conn.execute(text('SELECT 1'))
+
+
+@app.route('/readyz')
+def readyz():
+    """Readiness: the database answers SELECT 1 within READYZ_TIMEOUT_SECONDS."""
     try:
-        # Try to connect to database
-        db = get_db_session()
-        db.close()
-        return {'status': 'healthy', 'database': 'connected'}, 200
-    except Exception as e:
-        return {'status': 'unhealthy', 'error': str(e)}, 500
+        _readyz_executor.submit(_check_database).result(timeout=READYZ_TIMEOUT_SECONDS)
+    except Exception:
+        app.logger.exception('Readiness check failed')
+        return jsonify({'status': 'unavailable'}), 503
+    return jsonify({'status': 'ok'}), 200
 
 
 @app.cli.command('init-db')
@@ -3092,7 +3141,7 @@ def set_password_command(username):
 if __name__ == '__main__':
     # Use port 5001 to avoid conflict with AirPlay on macOS
     print("🚀 Starting Flask development server on http://0.0.0.0:5001")
-    app.run(debug=True, host='0.0.0.0', port=5001)
+    app.run(debug=(ENV == 'development'), host='0.0.0.0', port=5001)
 else:
     # Production mode (Gunicorn)
     print("🚀 Flask app loaded (production mode)")

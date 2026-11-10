@@ -67,6 +67,27 @@ def test_data_dirs_come_from_env_and_are_not_created_on_import(reload_settings, 
         assert not getattr(settings, name).exists()
 
 
+def test_database_url_defaults_to_sqlite_file_in_data_dir(reload_settings, tmp_path):
+    os.environ.pop("DATABASE_URL", None)
+    os.environ["DATA_DIR"] = str(tmp_path / "data")
+
+    settings = reload_settings("production", VALID_KEY)
+
+    assert settings.DATABASE_URL == f"sqlite:///{tmp_path / 'data' / 'malitan.db'}"
+
+
+@pytest.mark.parametrize("value, expected", [(None, True), ("true", True), ("false", False), ("0", False)])
+def test_session_cookie_secure_from_env(reload_settings, value, expected):
+    if value is None:
+        os.environ.pop("SESSION_COOKIE_SECURE", None)
+    else:
+        os.environ["SESSION_COOKIE_SECURE"] = value
+
+    settings = reload_settings("production", VALID_KEY)
+
+    assert settings.SESSION_COOKIE_SECURE is expected
+
+
 def test_development_without_key_uses_dev_only_key(reload_settings):
     settings = reload_settings("development", None)
 

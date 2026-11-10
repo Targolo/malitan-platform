@@ -2,7 +2,10 @@
 Database connection management
 Handles both SQLite (dev) and PostgreSQL (prod) connections
 """
+from pathlib import Path
+
 from sqlalchemy import create_engine
+from sqlalchemy.engine import make_url
 from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy.pool import StaticPool
 from config.settings import get_database_url, DATABASE_TYPE, is_development
@@ -21,6 +24,11 @@ def init_database():
     
     # Create engine
     if DATABASE_TYPE == 'sqlite':
+        # SQLite creates the file but not its directory (e.g. DATA_DIR on a fresh volume)
+        sqlite_file = make_url(database_url).database
+        if sqlite_file and sqlite_file != ':memory:':
+            Path(sqlite_file).parent.mkdir(parents=True, exist_ok=True)
+
         # SQLite configuration
         engine = create_engine(
             database_url,

@@ -44,8 +44,12 @@ def test_app(tmp_path_factory):
     os.environ["ENV"] = "development"
     os.environ["DATABASE_TYPE"] = "sqlite"
     os.environ["DATABASE_URL"] = f"sqlite:///{db_file}"
-    os.environ.setdefault("AUTH_SECRET_KEY", "tests-only-auth-secret-key-not-a-real-secret")
-    os.environ.setdefault("ENABLE_PACKAGING_EMAILS", "false")
+    # Hermetic: the caller's shell must not change the run, nor enable real services
+    os.environ["AUTH_SECRET_KEY"] = "tests-only-auth-secret-key-not-a-real-secret"
+    os.environ["ENABLE_PACKAGING_EMAILS"] = "false"
+    for var in ("BREVO_API_KEY", "BULKGATE_APPLICATION_ID", "BULKGATE_APPLICATION_TOKEN",
+                "TELEGRAM_BOT_TOKEN", "STATUS_API_TOKEN", "SESSION_COOKIE_SECURE"):
+        os.environ.pop(var, None)
 
     modules = _reload_modules()
     modules.connection.init_database()
