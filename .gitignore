@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+.venv/
+*.py[cod]
+
+# Environment secrets
+.env
+.env.*
+!.env.example
+!.env.template
+
+# Local databases and SQLite sidecar files
+*.db
+*.sqlite3
+*.sqlite
+*.db-*
+*.sqlite3-*
+*.sqlite-*
+
+# Terraform state, working directory, and plans
+.terraform/
+*.tfstate*
+*.tfplan
+
+# Kubernetes credentials
+.kube/
+*kubeconfig*
