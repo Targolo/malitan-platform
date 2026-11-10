@@ -44,12 +44,14 @@ def test_app(tmp_path_factory):
     os.environ["ENV"] = "development"
     os.environ["DATABASE_TYPE"] = "sqlite"
     os.environ["DATABASE_URL"] = f"sqlite:///{db_file}"
-    # Hermetic: the caller's shell must not change the run, nor enable real services
+    # Hermetic: the caller's shell must not change the run, nor enable real services.
+    # Empty rather than removed: load_dotenv() (run again by the reloads below) only
+    # fills in missing variables, so a local .env can't bring real keys back.
     os.environ["AUTH_SECRET_KEY"] = "tests-only-auth-secret-key-not-a-real-secret"
     os.environ["ENABLE_PACKAGING_EMAILS"] = "false"
     for var in ("BREVO_API_KEY", "BULKGATE_APPLICATION_ID", "BULKGATE_APPLICATION_TOKEN",
                 "TELEGRAM_BOT_TOKEN", "STATUS_API_TOKEN", "SESSION_COOKIE_SECURE"):
-        os.environ.pop(var, None)
+        os.environ[var] = ""
 
     modules = _reload_modules()
     modules.connection.init_database()
