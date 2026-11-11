@@ -108,10 +108,9 @@ def test_uploaded_image_lands_under_data_dir_and_is_served(
     product = db_session.query(test_app.models.Product).filter_by(nom="Lampe Upload").one()
     assert product.image_url == filename
 
-    served = web_client.get(f"/data/product_images/{filename}")
-
-    assert served.status_code == 200
-    assert served.data == png
+    with web_client.get(f"/data/product_images/{filename}") as served:
+        assert served.status_code == 200
+        assert served.data == png
 
 
 def test_legacy_relative_image_url_is_served_and_deleted_by_file_name(
@@ -125,7 +124,8 @@ def test_legacy_relative_image_url_is_served_and_deleted_by_file_name(
     db_session.commit()
     _login(web_client, workflow_order.user_lea_id)
 
-    assert web_client.get("/data/product_images/old.png").data == b"old"
+    with web_client.get("/data/product_images/old.png") as served:
+        assert served.data == b"old"
 
     resp = web_client.post(
         f"/catalogue/products/{workflow_order.product_id}/update",

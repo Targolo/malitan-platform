@@ -1,0 +1,28 @@
+[project]
+name = "malitan-3d"
+version = "2.11.4"  # keep in sync with APP_VERSION in config/settings.py
+description = "Malitan 3D Manager: order, production and stock management (Flask)"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "flask>=3.0.0",
+    "werkzeug>=3.0.0",
+    "gunicorn>=21.2.0",
+    "sqlalchemy>=2.0.23",
+    "psycopg2-binary>=2.9.10",
+    "pandas>=2.1.3",
+    "openpyxl>=3.1.5",
+    "python-dotenv>=1.0.0",
+    "requests>=2.31.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=7.4.3",
+    "selenium>=4.24.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "ui: Tests that drive the UI via Selenium (require browser/driver)",
+]
