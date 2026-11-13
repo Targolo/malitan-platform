@@ -1,0 +1,9 @@
+.venv
+data
+backups
+exports
+__pycache__
+.pytest_cache
+tests
+.env
+.env.*

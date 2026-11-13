@@ -14,7 +14,7 @@ from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
 import click
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify, send_file, send_from_directory, flash, get_flashed_messages
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv
 from sqlalchemy import text
 from sqlalchemy.engine import make_url
 
@@ -33,9 +33,14 @@ else:
         load_dotenv(flask_prod_file)
         print(f"✅ Loaded Flask production config: {flask_prod_file}")
     else:
-        # Fallback to regular .env
-        load_dotenv()
-        print("⚠️  Using default .env")
+        # Fallback to regular .env (searched upward from this file); in a container
+        # there is usually none and the variables come from the process environment.
+        default_env_file = find_dotenv()
+        if default_env_file:
+            load_dotenv(default_env_file)
+            print(f"✅ Loaded config: {default_env_file}")
+        else:
+            print("ℹ️  No .env file found; using process environment variables")
 
 # Import settings after loading the appropriate .env so DATABASE_URL est à jour
 import config.settings as app_settings
