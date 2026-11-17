@@ -33,6 +33,14 @@ spec:
         volumeMounts:
         - mountPath: /data
           name: {{ .Release.Name }}-data
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: http
+        livenessProbe:
+          httpGet:
+            path: /livez
+            port: http
       initContainers:
       - name: init-db
         image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
