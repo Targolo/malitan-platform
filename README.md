@@ -67,7 +67,53 @@ k3d/                Cluster config
 
 ## Run it locally
 
-Instructions arrive with week 1.
+### Prerequisites (Windows 11 + WSL2)
+
+The lab runs inside WSL2 (Ubuntu 24.04) with Docker Engine (not Docker Desktop), kubectl, Helm and k3d. Two Windows settings are needed so the browser on Windows reaches the cluster on `localhost:8080`:
+
+1. **WSL in mirrored networking mode.** In the default NAT mode, WSL relays ports opened in Linux to Windows' `localhost`, but the relay does not pick up ports published by recent Docker Engine versions: the app answers inside WSL while Windows gets "connection refused". Mirrored mode shares Windows' network interfaces, so no relay is involved. In `%UserProfile%\.wslconfig`:
+
+   ```ini
+   [wsl2]
+   networkingMode=mirrored
+   ```
+
+   Then run `wsl --shutdown` and reopen the WSL terminal.
+
+2. **Port 8080 not reserved by Windows.** Hyper-V reserves blocks of ports inside Windows' dynamic port range, and in mirrored mode those reservations also apply to WSL. If the range has been moved down (for example to 1024-15000), 8080 can end up reserved and the k3d load balancer fails with `address already in use` even though nothing is listening. Check in PowerShell:
+
+   ```powershell
+   netsh interface ipv4 show excludedportrange protocol=tcp
+   netsh int ipv4 show dynamicport tcp
+   ```
+
+   If 8080 falls in a reserved range, restore the default dynamic range (49152-65535) from an administrator PowerShell, then reboot:
+
+   ```powershell
+   netsh int ipv4 set dynamicport tcp start=49152 num=16384
+   netsh int ipv6 set dynamicport tcp start=49152 num=16384
+   ```
+
+### Start the cluster and deploy
+
+```bash
+# Cluster: 1 server, 2 agents, host port 8080 to the load balancer
+k3d cluster create --config k3d/cluster.yaml
+
+# Image: build it, then copy it into the cluster's nodes (no registry yet)
+scripts/docker-build.sh            # builds malitan:dev
+k3d image import malitan:dev -c malitan
+
+# Namespace and secret key, created outside the chart (never committed)
+kubectl create namespace malitan
+kubectl create secret generic malitan-auth -n malitan \
+  --from-literal=AUTH_SECRET_KEY="$(openssl rand -hex 32)"
+
+# App
+helm install malitan charts/malitan -n malitan
+```
+
+Open <http://malitan.localhost:8080>. Database initialization (`init-db`) is the next step to be added to the chart.
 
 ## Author
 
