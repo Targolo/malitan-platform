@@ -14,6 +14,10 @@ spec:
       labels:
         {{- include "malitan.selectorLabels" . | nindent 8 }}
     spec:
+      volumes:
+      - name: {{ .Release.Name }}-data
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-data
       containers:
       - image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
         name: {{ .Release.Name }}
@@ -26,3 +30,21 @@ spec:
             secretKeyRef:
               name: {{ .Values.auth.existingSecret }}
               key: AUTH_SECRET_KEY
+        volumeMounts:
+        - mountPath: /data
+          name: {{ .Release.Name }}-data
+      initContainers:
+      - name: init-db
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        command: ["flask", "init-db"]
+        env:
+        - name: AUTH_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.auth.existingSecret }}
+              key: AUTH_SECRET_KEY
+        volumeMounts:
+        - mountPath: /data
+          name: {{ .Release.Name }}-data
+  strategy:
+    type: Recreate

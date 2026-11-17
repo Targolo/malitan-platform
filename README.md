@@ -113,7 +113,11 @@ kubectl create secret generic malitan-auth -n malitan \
 helm install malitan charts/malitan -n malitan
 ```
 
-Open <http://malitan.localhost:8080>. Database initialization (`init-db`) is the next step to be added to the chart.
+An init container runs `flask init-db` before the app starts: it creates the missing tables and the initial users (with unusable passwords), and leaves an existing database alone. The SQLite database lives on a PersistentVolumeClaim, so it survives pod restarts. Set a password (prompted, never passed on the command line), then open <http://malitan.localhost:8080>:
+
+```bash
+kubectl exec -it -n malitan deploy/malitan -c malitan -- flask set-password david
+```
 
 ## Author
 
