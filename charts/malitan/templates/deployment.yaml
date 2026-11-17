@@ -20,3 +20,9 @@ spec:
         ports:
         - name: http
           containerPort: 5001
+        env:
+        - name: AUTH_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.auth.existingSecret }}
+              key: AUTH_SECRET_KEY

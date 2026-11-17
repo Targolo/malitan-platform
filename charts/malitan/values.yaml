@@ -2,3 +2,8 @@ image:
   repository: malitan
   tag: dev
 replicaCount: 1
+auth:
+  existingSecret: malitan-auth
+ingress:
+  host: malitan.localhost
+  className: traefik
