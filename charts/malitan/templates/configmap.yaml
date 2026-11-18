@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-config
+  labels:
+    {{- include "malitan.selectorLabels" . | nindent 4 }}
+data:
+  {{- toYaml .Values.config | nindent 2 }}

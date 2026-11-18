@@ -9,3 +9,14 @@ ingress:
   className: traefik
 pvc:
   storage: 1Gi
+config:
+  ENV: "production"
+  SESSION_COOKIE_SECURE: "true"
+  SHOW_PERFORMANCE_TIMING: "false"
+  ENABLE_PACKAGING_EMAILS: "false"
+resources:
+  requests:
+    cpu: 50m
+    memory: 80Mi
+  limits:
+    memory: 128Mi

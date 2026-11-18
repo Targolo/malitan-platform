@@ -20,8 +20,8 @@ k3d (k3s) · Helm · Argo CD · GitHub Actions · GHCR · Prometheus · Grafana 
 
 ### Week 1: Kubernetes and Helm
 - [x] Multi-node k3d cluster
-- [ ] Helm chart from scratch: probes, resources, ConfigMap, Secret, Ingress
-- [ ] Install, upgrade, rollback
+- [x] Helm chart from scratch: probes, resources, ConfigMap, Secret, Ingress
+- [x] Install, upgrade, rollback
 - [ ] Failure drills: CrashLoopBackOff, failing probes, OOMKilled, node loss
 
 ### Week 2: CI and GitOps

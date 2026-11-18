@@ -13,6 +13,8 @@ spec:
     metadata:
       labels:
         {{- include "malitan.selectorLabels" . | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
     spec:
       volumes:
       - name: {{ .Release.Name }}-data
@@ -24,6 +26,9 @@ spec:
         ports:
         - name: http
           containerPort: 5001
+        envFrom:
+        - configMapRef:
+            name: {{ .Release.Name }}-config
         env:
         - name: AUTH_SECRET_KEY
           valueFrom:
@@ -41,10 +46,15 @@ spec:
           httpGet:
             path: /livez
             port: http
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
       initContainers:
       - name: init-db
         image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
         command: ["flask", "init-db"]
+        envFrom:
+        - configMapRef:
+            name: {{ .Release.Name }}-config
         env:
         - name: AUTH_SECRET_KEY
           valueFrom:
@@ -54,5 +64,7 @@ spec:
         volumeMounts:
         - mountPath: /data
           name: {{ .Release.Name }}-data
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
   strategy:
     type: Recreate
