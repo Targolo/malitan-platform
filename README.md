@@ -3,7 +3,7 @@ A GitOps Kubernetes platform for a real Flask application: CI, Argo CD, observab
 
 The workload is **Malitan 3D**, a business-management web app I wrote for a small 3D-printing business. This repository takes it from a single container to a reproducible platform.
 
-**Status:** work in progress, started November 2026. Currently on week 1 (Kubernetes and Helm).
+**Status:** work in progress, started November 2026. Week 1 (Kubernetes and Helm) done; next: week 2 (CI and GitOps).
 
 ## Stack
 
@@ -22,7 +22,7 @@ k3d (k3s) · Helm · Argo CD · GitHub Actions · GHCR · Prometheus · Grafana 
 - [x] Multi-node k3d cluster
 - [x] Helm chart from scratch: probes, resources, ConfigMap, Secret, Ingress
 - [x] Install, upgrade, rollback
-- [ ] Failure drills: CrashLoopBackOff, failing probes, OOMKilled, node loss
+- [x] Failure drills: CrashLoopBackOff, failing probes, OOMKilled, node loss
 
 ### Week 2: CI and GitOps
 - [ ] GitHub Actions: test, build, push to GHCR
