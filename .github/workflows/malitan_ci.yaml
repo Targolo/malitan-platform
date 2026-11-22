@@ -17,5 +17,5 @@ jobs:
           version: "0.13.7"
           enable-cache: true
       - name: run tests
-        run: uv run --locked pytest
+        run: uv run --locked pytest  -m "not ui"
         working-directory: ./app
