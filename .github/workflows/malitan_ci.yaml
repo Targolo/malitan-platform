@@ -4,8 +4,14 @@ name: malitan_ci
 on:
   push:
     branches: [main]
+    paths:
+      - "app/**"
+      - ".github/workflows/malitan_ci.yaml"
   pull_request:
     branches: [main]  
+    paths:
+      - "app/**"
+      - ".github/workflows/malitan_ci.yaml"
 jobs:
   test:
     runs-on: ubuntu-latest
