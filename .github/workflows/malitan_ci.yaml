@@ -1,0 +1,21 @@
+permissions:
+  contents: read
+name: malitan_ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]  
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: install uv
+        uses: astral-sh/setup-uv@v10
+        with:
+          version: "0.13.7"
+          enable-cache: true
+      - name: run tests
+        run: uv run --locked pytest
+        working-directory: ./app
