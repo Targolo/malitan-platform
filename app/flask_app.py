@@ -13,7 +13,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
 import click
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify, send_file, send_from_directory, flash, get_flashed_messages
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, send_file, send_from_directory, flash
 from dotenv import find_dotenv, load_dotenv
 from sqlalchemy import text
 from sqlalchemy.engine import make_url
@@ -46,7 +46,7 @@ else:
 import config.settings as app_settings
 from config.settings import APP_NAME, APP_VERSION, AUTH_SECRET_KEY, DATABASE_URL, DATABASE_TYPE, ENV, SESSION_COOKIE_SECURE, get_database_url
 from database.connection import init_database, get_db_session
-from database.models import OrderStatus, Order, OrderLine, FabricationStatus, DeliveryMode
+from database.models import OrderStatus, Order, FabricationStatus
 
 # Add parent directory to path to import existing modules
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -203,7 +203,7 @@ def inject_menu_counts():
             'nb_objets_a_emballer': nb_objets_a_emballer,
             'nb_objets_a_envoyer': nb_objets_a_envoyer
         }
-    except Exception as e:
+    except Exception:
         # Fail silently for menu counts to not break the app
         # print(f"Error calculating menu counts: {e}")
         return {}
@@ -1320,7 +1320,6 @@ def product_create():
     try:
         from business_logic.catalogue import create_product
         from database.models import ProductType
-        from pathlib import Path
         import re
         import traceback
         
@@ -1455,7 +1454,6 @@ def product_update(product_id):
             update_product, get_product_by_id, normalize_tinkercad_links, normalize_3mf_files
         )
         from database.models import ProductType
-        from pathlib import Path
         import re
 
         product = get_product_by_id(db, product_id)
@@ -2202,13 +2200,7 @@ def production():
         queue_all = get_production_queue(db)
         
         # Build filter options before filtering
-        # Only include orders that have at least one item left to print (not IMPRIME/LIVRE_LEA)
-        orders_to_print = {
-            line.order_id 
-            for line in queue_all 
-            if line.statut_fabrication != FabricationStatus.IMPRIME
-        }
-        
+       
         product_options = sorted(
             {(line.product_id, line.product.nom) for line in queue_all if line.product},
             key=lambda item: item[1].lower()
@@ -2994,7 +2986,7 @@ def settings_telegram():
     db = get_db_session()
     try:
         from database.models import User
-        from config.settings import TELEGRAM_ENABLED, TELEGRAM_BOT_TOKEN
+        from config.settings import TELEGRAM_ENABLED
         user = db.query(User).filter(User.username == session['username']).first()
         return render_template(
             'settings/telegram.html',

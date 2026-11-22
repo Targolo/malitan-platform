@@ -2,8 +2,7 @@
 Email template utilities
 Load and render email HTML templates
 """
-from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict
 from config.settings import BASE_DIR
 
 

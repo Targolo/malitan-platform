@@ -6,7 +6,6 @@ import logging
 import requests
 import re
 from typing import List, Optional
-from datetime import datetime
 from config.settings import (
     BREVO_API_KEY, BREVO_SENDER_EMAIL, BREVO_SENDER_NAME, BREVO_ENABLED,
     BULKGATE_APPLICATION_ID, BULKGATE_APPLICATION_TOKEN, BULKGATE_ENABLED,
@@ -160,7 +159,6 @@ def send_email_notification(
     Returns:
         True if sent successfully, False otherwise
     """
-    import base64
     
     # Check if Brevo is enabled
     if not BREVO_ENABLED:

@@ -4,7 +4,6 @@ Adapted from utils/auth.py for Flask sessions
 """
 from typing import Optional
 from werkzeug.security import generate_password_hash, check_password_hash
-from sqlalchemy.orm import Session
 from database.models import User
 from database.connection import get_db_session
 

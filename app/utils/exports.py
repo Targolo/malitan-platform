@@ -8,8 +8,8 @@ from datetime import datetime
 from typing import Optional
 from sqlalchemy.orm import Session
 from database.models import (
-    Order, OrderLine, Client, Product, Color, 
-    Printer, Reversement, StockMovement
+    Order, Client, Product, Color, 
+    Reversement, StockMovement
 )
 
 

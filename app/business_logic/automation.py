@@ -4,9 +4,7 @@ Placeholder for future automation features
 """
 from typing import Iterable, List, Optional
 from sqlalchemy.orm import Session, joinedload
-from database.models import Color, Order, OrderStatus, Product, FinishedGoodsStock
-from business_logic.inventory import get_low_stock_colors
-from business_logic.finished_goods import get_all_stock
+from database.models import Order, OrderStatus, Product, FinishedGoodsStock
 
 
 def check_low_stock_alerts(db: Session) -> List[dict]:
@@ -79,7 +77,6 @@ def check_low_finished_goods_stock(db: Session) -> List[dict]:
             product_name = item['product'].nom
             color_name = item['color'].nom
             stock_qty = item['stock']
-            threshold = item['threshold']
             
             item_names.append(f"{product_name} ({color_name}): {stock_qty} unité(s)")
             

@@ -11,7 +11,7 @@ ensuring backend functionality while blocking public API access.
 from datetime import datetime
 from sqlalchemy import (
     Column, Integer, String, Float, DateTime, Boolean, 
-    Text, ForeignKey, Enum, ARRAY
+    Text, ForeignKey, Enum
 )
 from sqlalchemy.orm import declarative_base, relationship
 import enum

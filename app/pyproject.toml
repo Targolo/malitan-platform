@@ -18,6 +18,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=7.4.3",
+    "ruff==0.17.6",
     "selenium>=4.24.0",
 ]
 
@@ -26,3 +27,6 @@ testpaths = ["tests"]
 markers = [
     "ui: Tests that drive the UI via Selenium (require browser/driver)",
 ]
+
+[tool.ruff.lint]
+select = ["F", "E9"]

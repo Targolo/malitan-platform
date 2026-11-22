@@ -2,9 +2,9 @@
 Global Search Utilities
 Search functionality for orders, clients, and products
 """
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, and_
+from sqlalchemy import or_
 from database.models import Order, Client, Product
 
 

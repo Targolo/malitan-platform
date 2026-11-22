@@ -8,10 +8,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 from database.models import (
     Order, OrderLine, OrderStatus, FabricationStatus,
-    Client, Product, Color, DeliveryMode
+    Client, Product, DeliveryMode
 )
 from business_logic.financial import calculate_line_financials
-from config.settings import ENABLE_PACKAGING_EMAILS, TELEGRAM_ENABLED
+from config.settings import ENABLE_PACKAGING_EMAILS
 
 
 def generate_order_number(db: Session) -> str:

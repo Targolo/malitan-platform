@@ -561,7 +561,6 @@ def get_benefice_statistics(db: Session, start_date: Optional[datetime] = None, 
     nb_commandes_emballage = len(order_ids_emballage)
     
     # 3. Objets Produits (Fabrication status IMPRIME/LIVRE_LEA OR Order status LIVRE)
-    from database.models import FabricationStatus
     produced_statuses = ['imprime', 'livre_lea']
     
     total_objets_produits = 0
