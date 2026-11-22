@@ -24,18 +24,36 @@ def init_database():
     
     # Create engine
     if DATABASE_TYPE == 'sqlite':
-        # SQLite creates the file but not its directory (e.g. DATA_DIR on a fresh volume)
         sqlite_file = make_url(database_url).database
-        if sqlite_file and sqlite_file != ':memory:':
+        in_memory = not sqlite_file or sqlite_file == ':memory:'
+
+        if in_memory:
+            # Each new connection to ":memory:" is a new, empty database, so every
+            # thread must share the single connection that holds the data.
+            engine = create_engine(
+                database_url,
+                connect_args={"check_same_thread": False},
+                poolclass=StaticPool,
+                echo=is_development()  # Show SQL queries in dev
+            )
+        else:
+            # SQLite creates the file but not its directory (e.g. DATA_DIR on a fresh volume)
             Path(sqlite_file).parent.mkdir(parents=True, exist_ok=True)
 
-        # SQLite configuration
-        engine = create_engine(
-            database_url,
-            connect_args={"check_same_thread": False},
-            poolclass=StaticPool,
-            echo=is_development()  # Show SQL queries in dev
-        )
+            # A database file gets the default pool: each thread checks out its own
+            # connection and SQLite serializes writers with file locks. Sharing one
+            # connection between threads (StaticPool) is unsafe: gunicorn's threads,
+            # the /readyz executor and a test server thread could use it at the same
+            # time and crash the process (SIGSEGV).
+            # check_same_thread=False only lets the pool hand a connection to another
+            # thread after it is returned; a connection is never used by two at once.
+            # timeout: a writer waits up to 15 s for a lock instead of failing at once
+            # with "database is locked".
+            engine = create_engine(
+                database_url,
+                connect_args={"check_same_thread": False, "timeout": 15},
+                echo=is_development()  # Show SQL queries in dev
+            )
     else:
         # PostgreSQL configuration
         engine = create_engine(
