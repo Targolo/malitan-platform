@@ -26,7 +26,7 @@ k3d (k3s) · Helm · Argo CD · GitHub Actions · GHCR · Prometheus · Grafana 
 
 ### Week 2: CI and GitOps
 - [x] GitHub Actions: test, build, push to GHCR
-- [ ] CI bumps the image tag in Git
+- [x] CI bumps the image tag in Git
 - [ ] Argo CD with automated sync and self-heal
 - [ ] Secrets encrypted in Git
 - [ ] dev and prod environments
