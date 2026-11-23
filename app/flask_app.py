@@ -2978,7 +2978,7 @@ def settings():
     finally:
         db.close()
 
-
+# dummy
 @app.route('/parametres/telegram', methods=['GET'])
 @login_required
 def settings_telegram():

@@ -1,6 +1,8 @@
 permissions:
   contents: read
+
 name: malitan_ci
+
 on:
   push:
     branches: [main]
@@ -12,6 +14,11 @@ on:
     paths:
       - "app/**"
       - ".github/workflows/malitan_ci.yaml"
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -25,6 +32,7 @@ jobs:
       - name: run tests
         run: uv run --locked pytest  -m "not ui"
         working-directory: ./app
+
   test-ui:
     runs-on: ubuntu-latest
     steps:
@@ -37,6 +45,7 @@ jobs:
       - name: run tests
         run: uv run --locked pytest  -m "ui"
         working-directory: ./app
+
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -49,6 +58,7 @@ jobs:
       - name: run lint
         run: uv run --locked ruff check
         working-directory: ./app
+
   build:
     needs: [test, test-ui, lint]
     permissions: { contents: read, packages: write }
@@ -83,3 +93,30 @@ jobs:
           tags:  ghcr.io/targolo/malitan:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+  
+  update-tag:
+    needs: build
+    if: github.event_name == 'push'
+    permissions: { contents: write }
+    concurrency:
+      group: update-tag
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_TAG: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main 
+      - name: Update the tag in values.yaml
+        run: |
+          yq -i '.image.tag = strenv(IMAGE_TAG)' charts/malitan/values.yaml
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add charts/malitan/values.yaml
+          git diff --cached --quiet || git commit -m "Update image tag to ${IMAGE_TAG}"
+          git pull --rebase origin main
+          git push origin main
+
