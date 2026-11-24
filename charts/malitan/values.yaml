@@ -1,6 +1,6 @@
 image:
   repository: ghcr.io/targolo/malitan
-  tag: 79e01f74edbe6bc5d9e2fa2a79ec0fe94f12c1c4
+  tag: 8da03b426dcc9f54323c019adfda83cd247e8ff9
 replicaCount: 1
 auth:
   existingSecret: malitan-auth
