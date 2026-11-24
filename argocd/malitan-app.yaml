@@ -1,0 +1,17 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: malitan
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Targolo/malitan-platform.git
+    targetRevision: main
+    path: charts/malitan
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: malitan
+  syncPolicy:
+    automated:
+      selfHeal: true
